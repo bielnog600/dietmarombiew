@@ -143,6 +143,11 @@ function calculateOptimalQuantities(
 
   const quantities = solveLeastSquares(A, b);
 
+  if (quantities.length !== n) {
+    console.error('Quantities length mismatch:', quantities.length, 'vs', n);
+    return new Array(n).fill(1);
+  }
+
   console.log('Initial quantities:', quantities.map((q, i) => `${foods[i].name}: ${q.toFixed(2)}`));
 
   for (let iteration = 0; iteration < 50; iteration++) {
@@ -190,6 +195,9 @@ function calculateOptimalQuantities(
 
 function solveLeastSquares(A: number[][], b: number[]): number[] {
   const n = A.length;
+
+  if (n === 0) return [];
+
   const m = A[0].length;
 
   const AT: number[][] = [];
@@ -215,19 +223,37 @@ function solveLeastSquares(A: number[][], b: number[]): number[] {
   const ATb: number[] = [];
   for (let i = 0; i < m; i++) {
     let sum = 0;
-    for (let k = 0; k < n; k++) {
+    for (let k = 0; k < b.length; k++) {
       sum += AT[i][k] * b[k];
     }
     ATb[i] = sum;
   }
 
-  const x = solveLinearSystem(ATA, ATb);
+  const x = solveLinearSystem3x3(ATA, ATb);
 
-  return x;
+  const result = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    result[i] = 0;
+    for (let j = 0; j < m; j++) {
+      result[i] += A[i][j] * x[j];
+    }
+  }
+
+  const scale = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    const total = A[i][0] + A[i][1] + A[i][2];
+    if (total > 0) {
+      scale[i] = (b[0] * A[i][0] / total + b[1] * A[i][1] / total + b[2] * A[i][2] / total) / total;
+    } else {
+      scale[i] = 1;
+    }
+  }
+
+  return scale;
 }
 
-function solveLinearSystem(A: number[][], b: number[]): number[] {
-  const n = A.length;
+function solveLinearSystem3x3(A: number[][], b: number[]): number[] {
+  const n = Math.min(A.length, b.length, 3);
   const augmented: number[][] = [];
 
   for (let i = 0; i < n; i++) {
