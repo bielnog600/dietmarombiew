@@ -14,18 +14,14 @@ interface Food {
   calories: number;
 }
 
-interface Meal {
-  id: string;
-  name: string;
-}
-
 export async function autoDistributeFoods(
   mealSelections: MealSelection[],
   targetProtein: number,
   targetCarbs: number,
   targetFats: number
 ) {
-  console.log('Auto-distribute started with', mealSelections.length, 'meals');
+  console.log('Auto-distribute started');
+  console.log('Target totals:', { targetProtein, targetCarbs, targetFats });
 
   const allFoodIds = mealSelections.flatMap(ms => ms.foodIds);
 
@@ -47,47 +43,64 @@ export async function autoDistributeFoods(
   const carbsPerMeal = targetCarbs / totalMealCount;
   const fatsPerMeal = targetFats / totalMealCount;
 
-  console.log('Target per meal:', { proteinPerMeal, carbsPerMeal, fatsPerMeal });
+  console.log('Target per meal:', { proteinPerMeal, carbsPerMeal, fatsPerMeal, totalMeals: totalMealCount });
 
   for (const selection of mealSelections) {
     if (selection.foodIds.length === 0) continue;
 
     const mealFoods = selection.foodIds.map(id => foodMap.get(id)!).filter(Boolean);
 
-    const proteinFoods = mealFoods.filter(f => f.protein >= f.carbs && f.protein >= f.fats);
-    const carbFoods = mealFoods.filter(f => f.carbs >= f.protein && f.carbs >= f.fats);
-    const fatFoods = mealFoods.filter(f => f.fats >= f.protein && f.fats >= f.carbs);
+    console.log(`\nProcessing meal: ${selection.mealId}`);
+    console.log('Foods selected:', mealFoods.map(f => f.name));
 
-    if (proteinFoods.length === 0) proteinFoods.push(...mealFoods.sort((a, b) => b.protein - a.protein).slice(0, 1));
-    if (carbFoods.length === 0) carbFoods.push(...mealFoods.sort((a, b) => b.carbs - a.carbs).slice(0, 1));
-    if (fatFoods.length === 0) fatFoods.push(...mealFoods.sort((a, b) => b.fats - a.fats).slice(0, 1));
+    const quantities = calculateOptimalQuantities(
+      mealFoods,
+      proteinPerMeal,
+      carbsPerMeal,
+      fatsPerMeal
+    );
 
-    const n = mealFoods.length;
-    const A: number[][] = [];
-    const b: number[] = [proteinPerMeal, carbsPerMeal, fatsPerMeal];
+    const totalMacros = {
+      protein: quantities.reduce((sum, q, i) => sum + q * mealFoods[i].protein, 0),
+      carbs: quantities.reduce((sum, q, i) => sum + q * mealFoods[i].carbs, 0),
+      fats: quantities.reduce((sum, q, i) => sum + q * mealFoods[i].fats, 0)
+    };
 
-    for (let i = 0; i < 3; i++) {
-      A[i] = [];
-      for (let j = 0; j < n; j++) {
-        if (i === 0) A[i][j] = mealFoods[j].protein;
-        else if (i === 1) A[i][j] = mealFoods[j].carbs;
-        else A[i][j] = mealFoods[j].fats;
-      }
-    }
+    console.log('Calculated quantities:', quantities.map((q, i) => `${mealFoods[i].name}: ${q.toFixed(2)}`));
+    console.log('Meal totals:', totalMacros);
 
-    const quantities = solveLinearSystem(A, b, n);
-
-    for (let i = 0; i < n; i++) {
-      const quantity = Math.max(0.1, Math.min(5, quantities[i]));
+    for (let i = 0; i < mealFoods.length; i++) {
       mealFoodsToInsert.push({
         meal_id: selection.mealId,
         food_id: mealFoods[i].id,
-        quantity
+        quantity: quantities[i]
       });
     }
-
-    console.log(`Meal ${selection.mealId}: distributed ${mealFoods.length} foods`);
   }
+
+  const finalTotals = {
+    protein: mealFoodsToInsert.reduce((sum, mf) => {
+      const food = foodMap.get(mf.food_id)!;
+      return sum + food.protein * mf.quantity;
+    }, 0),
+    carbs: mealFoodsToInsert.reduce((sum, mf) => {
+      const food = foodMap.get(mf.food_id)!;
+      return sum + food.carbs * mf.quantity;
+    }, 0),
+    fats: mealFoodsToInsert.reduce((sum, mf) => {
+      const food = foodMap.get(mf.food_id)!;
+      return sum + food.fats * mf.quantity;
+    }, 0)
+  };
+
+  console.log('\n=== FINAL TOTALS ===');
+  console.log('Target:', { targetProtein, targetCarbs, targetFats });
+  console.log('Actual:', finalTotals);
+  console.log('Difference:', {
+    protein: (finalTotals.protein - targetProtein).toFixed(1),
+    carbs: (finalTotals.carbs - targetCarbs).toFixed(1),
+    fats: (finalTotals.fats - targetFats).toFixed(1)
+  });
 
   const mealIds = mealSelections.map(ms => ms.mealId);
   await supabase.from('meal_foods').delete().in('meal_id', mealIds);
@@ -101,41 +114,87 @@ export async function autoDistributeFoods(
   console.log('Distribution complete!');
 }
 
-function solveLinearSystem(A: number[][], b: number[], n: number): number[] {
+function calculateOptimalQuantities(
+  foods: Food[],
+  targetProtein: number,
+  targetCarbs: number,
+  targetFats: number
+): number[] {
+  const n = foods.length;
   const quantities = new Array(n).fill(0);
 
   if (n === 1) {
-    const avgMacro = (b[0] + b[1] + b[2]) / 3;
-    const avgFoodMacro = (A[0][0] + A[1][0] + A[2][0]) / 3;
-    quantities[0] = avgMacro / (avgFoodMacro || 1);
+    const food = foods[0];
+    const proteinQ = targetProtein / (food.protein || 1);
+    const carbsQ = targetCarbs / (food.carbs || 1);
+    const fatsQ = targetFats / (food.fats || 1);
+    quantities[0] = Math.max(0.5, Math.min(5, (proteinQ + carbsQ + fatsQ) / 3));
     return quantities;
   }
 
-  for (let i = 0; i < n; i++) {
-    const protein = A[0][i];
-    const carbs = A[1][i];
-    const fats = A[2][i];
+  const proteinFoods: number[] = [];
+  const carbFoods: number[] = [];
+  const fatFoods: number[] = [];
 
-    if (protein > carbs && protein > fats) {
-      quantities[i] = b[0] / (protein * n);
-    } else if (carbs > protein && carbs > fats) {
-      quantities[i] = b[1] / (carbs * n);
-    } else {
-      quantities[i] = b[2] / (fats * n);
+  for (let i = 0; i < n; i++) {
+    const food = foods[i];
+    if (food.protein >= food.carbs && food.protein >= food.fats) {
+      proteinFoods.push(i);
+    }
+    if (food.carbs >= food.protein && food.carbs >= food.fats) {
+      carbFoods.push(i);
+    }
+    if (food.fats >= food.protein && food.fats >= food.carbs) {
+      fatFoods.push(i);
     }
   }
 
-  const currentProtein = quantities.reduce((sum, q, i) => sum + q * A[0][i], 0);
-  const currentCarbs = quantities.reduce((sum, q, i) => sum + q * A[1][i], 0);
-  const currentFats = quantities.reduce((sum, q, i) => sum + q * A[2][i], 0);
+  if (proteinFoods.length === 0) proteinFoods.push(0);
+  if (carbFoods.length === 0) carbFoods.push(n > 1 ? 1 : 0);
+  if (fatFoods.length === 0) fatFoods.push(n > 2 ? 2 : 0);
 
-  const proteinRatio = b[0] / (currentProtein || 1);
-  const carbsRatio = b[1] / (currentCarbs || 1);
-  const fatsRatio = b[2] / (currentFats || 1);
-  const avgRatio = (proteinRatio + carbsRatio + fatsRatio) / 3;
+  for (const idx of proteinFoods) {
+    quantities[idx] = targetProtein / (foods[idx].protein * proteinFoods.length || 1);
+  }
+  for (const idx of carbFoods) {
+    quantities[idx] = targetCarbs / (foods[idx].carbs * carbFoods.length || 1);
+  }
+  for (const idx of fatFoods) {
+    quantities[idx] = targetFats / (foods[idx].fats * fatFoods.length || 1);
+  }
+
+  for (let iteration = 0; iteration < 10; iteration++) {
+    const currentProtein = quantities.reduce((sum, q, i) => sum + q * foods[i].protein, 0);
+    const currentCarbs = quantities.reduce((sum, q, i) => sum + q * foods[i].carbs, 0);
+    const currentFats = quantities.reduce((sum, q, i) => sum + q * foods[i].fats, 0);
+
+    const proteinError = targetProtein - currentProtein;
+    const carbsError = targetCarbs - currentCarbs;
+    const fatsError = targetFats - currentFats;
+
+    if (Math.abs(proteinError) < 1 && Math.abs(carbsError) < 1 && Math.abs(fatsError) < 1) {
+      break;
+    }
+
+    for (const idx of proteinFoods) {
+      if (foods[idx].protein > 0) {
+        quantities[idx] += (proteinError / proteinFoods.length) / foods[idx].protein;
+      }
+    }
+    for (const idx of carbFoods) {
+      if (foods[idx].carbs > 0) {
+        quantities[idx] += (carbsError / carbFoods.length) / foods[idx].carbs;
+      }
+    }
+    for (const idx of fatFoods) {
+      if (foods[idx].fats > 0) {
+        quantities[idx] += (fatsError / fatFoods.length) / foods[idx].fats;
+      }
+    }
+  }
 
   for (let i = 0; i < n; i++) {
-    quantities[i] *= avgRatio;
+    quantities[i] = Math.max(0.1, Math.min(10, quantities[i]));
   }
 
   return quantities;
