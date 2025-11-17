@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ChevronLeft, ChevronRight, ArrowRightLeft } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { useMealTranslation } from '../translations/meals';
 import { useTranslation } from '../translations';
 import { useLanguageStore } from '../store/languageStore';
 import { FoodSubstitutionModal } from './FoodSubstitutionModal';
-import { TransferFoodModal } from './TransferFoodModal';
 import type { Meal } from '../types';
 
 interface DietPlanMealProps {
@@ -52,11 +52,46 @@ export default function DietPlanMeal({
   const [tempPortionValue, setTempPortionValue] = useState<string>('');
   const [substitutionModalOpen, setSubstitutionModalOpen] = useState(false);
   const [selectedFoodForSubstitution, setSelectedFoodForSubstitution] = useState<any>(null);
-  const [transferModalOpen, setTransferModalOpen] = useState(false);
-  const [selectedFoodForTransfer, setSelectedFoodForTransfer] = useState<{
-    mealFoodId: string;
-    foodName: string;
-  } | null>(null);
+  const [transferDropdownOpen, setTransferDropdownOpen] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const availableMeals = allMeals.filter(m => m.id !== meal.id);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setTransferDropdownOpen(null);
+      }
+    }
+
+    if (transferDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [transferDropdownOpen]);
+
+  const handleTransferFood = async (mealFoodId: string, targetMealId: string) => {
+    setTransferring(true);
+    try {
+      const { error } = await supabase
+        .from('meal_foods')
+        .update({ meal_id: targetMealId })
+        .eq('id', mealFoodId);
+
+      if (error) throw error;
+
+      setTransferDropdownOpen(null);
+      onTransferFood();
+    } catch (error) {
+      console.error('Error transferring food:', error);
+      alert(language === 'pt'
+        ? 'Erro ao transferir alimento. Tente novamente.'
+        : 'Error transferring food. Please try again.');
+    } finally {
+      setTransferring(false);
+    }
+  };
 
   const handlePortionChange = (mealFoodId: string, currentGrams: number, increment: boolean) => {
     const step = 10; // Adjust portion by 10g increments
@@ -200,19 +235,41 @@ export default function DietPlanMeal({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
-                  <button
-                    onClick={() => {
-                      setSelectedFoodForTransfer({
-                        mealFoodId: mealFood.id,
-                        foodName: getFoodName(mealFood.food)
-                      });
-                      setTransferModalOpen(true);
-                    }}
-                    className="text-gray-400 hover:text-[#f8c045] transition"
-                    title={language === 'pt' ? 'Transferir para outra refeição' : 'Transfer to another meal'}
-                  >
-                    <ArrowRightLeft size={18} />
-                  </button>
+                  <div className="relative" ref={transferDropdownOpen === mealFood.id ? dropdownRef : null}>
+                    <button
+                      onClick={() => setTransferDropdownOpen(transferDropdownOpen === mealFood.id ? null : mealFood.id)}
+                      className="text-gray-400 hover:text-[#f8c045] transition"
+                      title={language === 'pt' ? 'Transferir para outra refeição' : 'Transfer to another meal'}
+                      disabled={transferring}
+                    >
+                      <ArrowRightLeft size={18} />
+                    </button>
+
+                    {transferDropdownOpen === mealFood.id && availableMeals.length > 0 && (
+                      <div className="absolute right-0 mt-2 w-56 bg-[rgb(23,23,23)] border border-[#f8c045]/30 rounded-lg shadow-xl z-50">
+                        <div className="p-2 border-b border-[#f8c045]/20">
+                          <p className="text-xs text-gray-400">
+                            {language === 'pt' ? 'Transferir para:' : 'Transfer to:'}
+                          </p>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto">
+                          {availableMeals.map((targetMeal) => (
+                            <button
+                              key={targetMeal.id}
+                              onClick={() => handleTransferFood(mealFood.id, targetMeal.id)}
+                              disabled={transferring}
+                              className="w-full text-left px-4 py-3 hover:bg-[rgb(28,28,28)] transition text-white border-b border-[#f8c045]/10 last:border-b-0 disabled:opacity-50"
+                            >
+                              <div className="font-medium">{translateMeal(targetMeal.name)}</div>
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                {targetMeal.meal_foods?.length || 0} {language === 'pt' ? 'alimentos' : 'foods'}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={() => onDeleteFood(mealFood.id)}
                     className="text-gray-400 hover:text-red-500 transition"
@@ -253,25 +310,6 @@ export default function DietPlanMeal({
             onSubstituteFood();
             setSubstitutionModalOpen(false);
             setSelectedFoodForSubstitution(null);
-          }}
-        />
-      )}
-
-      {selectedFoodForTransfer && (
-        <TransferFoodModal
-          isOpen={transferModalOpen}
-          onClose={() => {
-            setTransferModalOpen(false);
-            setSelectedFoodForTransfer(null);
-          }}
-          currentMeal={meal}
-          mealFoodId={selectedFoodForTransfer.mealFoodId}
-          foodName={selectedFoodForTransfer.foodName}
-          dietId={dietId}
-          onTransfer={() => {
-            onTransferFood();
-            setTransferModalOpen(false);
-            setSelectedFoodForTransfer(null);
           }}
         />
       )}
