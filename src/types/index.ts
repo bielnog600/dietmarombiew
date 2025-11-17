@@ -51,6 +51,7 @@ export interface Meal {
   name: string;
   created_at: string;
   meal_foods?: MealFood[];
+  day_of_week?: number;
 }
 
 export interface MealFood {

@@ -334,13 +334,19 @@ const DietPlan = () => {
 
       console.log('Target macros:', { targetProtein, targetCarbs, targetFats });
 
-      const mealsForDay = diet.meals?.filter(m => m.day_of_week === selectedDayOfWeek) || [];
+      let mealsForDay = diet.meals || [];
+
+      if (mealsForDay.some(m => m.day_of_week !== undefined && m.day_of_week !== null)) {
+        mealsForDay = mealsForDay.filter(m => m.day_of_week === selectedDayOfWeek);
+      }
+
       const numMeals = mealsForDay.length;
 
       console.log('Meals for day', selectedDayOfWeek, ':', numMeals);
+      console.log('Available meals:', mealsForDay.map(m => ({ id: m.id, name: m.name, day: m.day_of_week })));
 
       if (numMeals === 0) {
-        setError('Nenhuma refeição encontrada para este dia');
+        setError('Nenhuma refeição encontrada. Crie uma dieta primeiro ou selecione outro dia.');
         setLoading(false);
         return;
       }
