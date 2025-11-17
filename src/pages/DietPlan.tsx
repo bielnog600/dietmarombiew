@@ -375,7 +375,7 @@ const DietPlan = () => {
               <h2 className="text-2xl font-bold text-[#f8c045]">{t('dietPlan')}</h2>
             </div>
 
-            <div className="flex justify-between items-center gap-1 mb-4 px-1">
+            <div className="grid grid-cols-7 gap-0.5 mb-4">
               {[
                 { day: 0, short: 'D', full: 'Dom' },
                 { day: 1, short: 'S', full: 'Seg' },
@@ -388,23 +388,23 @@ const DietPlan = () => {
                 <button
                   key={item.day}
                   onClick={() => setSelectedDayOfWeek(item.day)}
-                  className={`flex flex-col items-center transition-all duration-300 flex-shrink-0 ${
+                  className={`flex flex-col items-center justify-center transition-all duration-300 ${
                     selectedDayOfWeek === item.day
-                      ? 'scale-110'
-                      : 'opacity-60 hover:opacity-100 hover:scale-105'
+                      ? 'scale-105'
+                      : 'opacity-60 hover:opacity-100 hover:scale-100'
                   }`}
                 >
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
+                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
                       selectedDayOfWeek === item.day
                         ? 'bg-[#f8c045] text-[rgb(23,23,23)] shadow-lg shadow-[#f8c045]/50'
-                        : 'bg-[rgb(28,28,28)] text-gray-400 border-2 border-gray-700'
+                        : 'bg-[rgb(28,28,28)] text-gray-400 border border-gray-700'
                     }`}
                   >
                     {item.short}
                   </div>
                   <span
-                    className={`text-[10px] mt-1 font-medium transition-colors duration-300 whitespace-nowrap ${
+                    className={`text-[9px] mt-0.5 font-medium transition-colors duration-300 ${
                       selectedDayOfWeek === item.day ? 'text-[#f8c045]' : 'text-gray-500'
                     }`}
                   >
@@ -497,7 +497,7 @@ const DietPlan = () => {
                 </p>
               </div>
 
-              <div className="flex justify-between items-center gap-1 mb-4 px-1">
+              <div className="grid grid-cols-7 gap-0.5 mb-4">
                 {[
                   { day: 0, short: 'D', full: 'Dom' },
                   { day: 1, short: 'S', full: 'Seg' },
@@ -510,23 +510,23 @@ const DietPlan = () => {
                   <button
                     key={item.day}
                     onClick={() => setSelectedDayOfWeek(item.day)}
-                    className={`flex flex-col items-center transition-all duration-300 flex-shrink-0 ${
+                    className={`flex flex-col items-center justify-center transition-all duration-300 ${
                       selectedDayOfWeek === item.day
-                        ? 'scale-110'
-                        : 'opacity-60 hover:opacity-100 hover:scale-105'
+                        ? 'scale-105'
+                        : 'opacity-60 hover:opacity-100 hover:scale-100'
                     }`}
                   >
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
+                      className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
                         selectedDayOfWeek === item.day
                           ? 'bg-[#f8c045] text-[rgb(23,23,23)] shadow-lg shadow-[#f8c045]/50'
-                          : 'bg-[rgb(28,28,28)] text-gray-400 border-2 border-gray-700'
+                          : 'bg-[rgb(28,28,28)] text-gray-400 border border-gray-700'
                       }`}
                     >
                       {item.short}
                     </div>
                     <span
-                      className={`text-[10px] mt-1 font-medium transition-colors duration-300 whitespace-nowrap ${
+                      className={`text-[9px] mt-0.5 font-medium transition-colors duration-300 ${
                         selectedDayOfWeek === item.day ? 'text-[#f8c045]' : 'text-gray-500'
                       }`}
                     >
