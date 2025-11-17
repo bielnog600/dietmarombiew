@@ -10,7 +10,7 @@ import type { Meal } from '../types';
 interface DietPlanMealProps {
   meal: Meal;
   index: number;
-  dietId: string;
+  allMeals: Meal[];
   onAddFood: () => void;
   onDeleteFood: (mealFoodId: string) => void;
   onUpdatePortion: (mealFoodId: string, newGrams: number) => void;

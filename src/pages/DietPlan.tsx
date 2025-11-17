@@ -727,13 +727,13 @@ const DietPlan = () => {
             <div className="space-y-3">
               {diet?.meals?.map((meal, index) => {
                 const mealMacros = calculateMealTotals(meal);
-                
+
                 return (
                   <DietPlanMeal
                     key={meal.id}
                     meal={meal}
                     index={index}
-                    dietId={diet.id}
+                    allMeals={diet.meals || []}
                     onAddFood={() => handleAddFood(meal.id)}
                     onDeleteFood={handleDeleteFood}
                     onUpdatePortion={handleUpdatePortion}
