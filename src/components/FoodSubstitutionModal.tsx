@@ -57,10 +57,20 @@ export function FoodSubstitutionModal({
       const { data: allFoods, error } = await supabase
         .from('foods')
         .select('id, name, protein, carbs, fats, calories')
-        .eq('user_id', user!.id)
-        .neq('id', currentFood.id);
+        .neq('id', currentFood.id)
+        .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching foods:', error);
+        throw error;
+      }
+
+      if (!allFoods || allFoods.length === 0) {
+        console.log('No foods found in database');
+        setSimilarFoods([]);
+        setLoading(false);
+        return;
+      }
 
       const currentProtein = currentFood.protein * currentFood.quantity;
       const currentCarbs = currentFood.carbs * currentFood.quantity;
