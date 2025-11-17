@@ -364,36 +364,101 @@ const DietPlan = () => {
 
       console.log('Deleted existing foods');
 
-      const proteinPerMeal = targetProtein / numMeals;
-      const carbsPerMeal = targetCarbs / numMeals;
-      const fatsPerMeal = targetFats / numMeals;
-      const caloriesPerMeal = diet.calories / numMeals;
+      const getMealType = (mealName: string, index: number): 'low-carb' | 'pre-workout' | 'post-workout' | 'normal' => {
+        const nameLower = mealName.toLowerCase();
+        if (nameLower.includes('café') || nameLower.includes('breakfast') || index === 0) return 'low-carb';
+        if (nameLower.includes('jantar') || nameLower.includes('dinner') || nameLower.includes('ceia') || index === mealsForDay.length - 1) return 'low-carb';
+        if (nameLower.includes('pré') || nameLower.includes('pre') || nameLower.includes('antes')) return 'pre-workout';
+        if (nameLower.includes('pós') || nameLower.includes('post') || nameLower.includes('depois')) return 'post-workout';
+        return 'normal';
+      };
 
-      console.log('Per meal targets:', { proteinPerMeal, carbsPerMeal, fatsPerMeal, caloriesPerMeal });
+      const getMealMacros = (type: 'low-carb' | 'pre-workout' | 'post-workout' | 'normal', totalCals: number) => {
+        switch (type) {
+          case 'low-carb':
+            return {
+              protein: Math.round((totalCals * 0.35) / 4),
+              carbs: Math.round((totalCals * 0.15) / 4),
+              fats: Math.round((totalCals * 0.50) / 9)
+            };
+          case 'pre-workout':
+            return {
+              protein: Math.round((totalCals * 0.30) / 4),
+              carbs: Math.round((totalCals * 0.55) / 4),
+              fats: Math.round((totalCals * 0.15) / 9)
+            };
+          case 'post-workout':
+            return {
+              protein: Math.round((totalCals * 0.40) / 4),
+              carbs: Math.round((totalCals * 0.50) / 4),
+              fats: Math.round((totalCals * 0.10) / 9)
+            };
+          case 'normal':
+            return {
+              protein: Math.round((totalCals * 0.30) / 4),
+              carbs: Math.round((totalCals * 0.40) / 4),
+              fats: Math.round((totalCals * 0.30) / 9)
+            };
+        }
+      };
 
-      for (const meal of mealsForDay) {
-        console.log('Processing meal:', meal.name);
-        const mealTargetMacros = {
-          protein: proteinPerMeal,
-          carbs: carbsPerMeal,
-          fats: fatsPerMeal
-        };
+      console.log('Distributing with meal-specific macro targets');
+
+      for (let i = 0; i < mealsForDay.length; i++) {
+        const meal = mealsForDay[i];
+        const mealType = getMealType(meal.name, i);
+        const caloriesForMeal = Math.round(diet.calories / numMeals);
+        const mealTargetMacros = getMealMacros(mealType, caloriesForMeal);
+
+        console.log(`Processing meal ${i + 1}:`, meal.name, 'Type:', mealType, 'Macros:', mealTargetMacros);
 
         const currentMacros = { protein: 0, carbs: 0, fats: 0, calories: 0 };
         const mealFoods: Array<{ meal_id: string; food_id: string; quantity: number }> = [];
 
-        const sortedFoods = [...foodsData].sort((a, b) => {
-          const aScore = Math.abs(a.protein - mealTargetMacros.protein) +
-                        Math.abs(a.carbs - mealTargetMacros.carbs) +
-                        Math.abs(a.fats - mealTargetMacros.fats);
-          const bScore = Math.abs(b.protein - mealTargetMacros.protein) +
-                        Math.abs(b.carbs - mealTargetMacros.carbs) +
-                        Math.abs(b.fats - mealTargetMacros.fats);
-          return aScore - bScore;
-        });
+        const categorizeFoods = (foods: typeof foodsData) => {
+          return {
+            protein: foods.filter(f => f.protein >= 15 && f.protein > f.carbs && f.protein > f.fats),
+            carbs: foods.filter(f => f.carbs >= 15 && f.carbs > f.protein && f.carbs > f.fats),
+            fats: foods.filter(f => f.fats >= 5 && f.fats > f.protein && f.fats > f.carbs),
+            balanced: foods.filter(f => {
+              const total = f.protein + f.carbs + f.fats;
+              return total > 0 && Math.max(f.protein, f.carbs, f.fats) / total < 0.6;
+            })
+          };
+        };
 
-        for (const food of sortedFoods) {
-          if (currentMacros.calories >= caloriesPerMeal * 0.95) break;
+        const categorizedFoods = categorizeFoods(foodsData);
+
+        const selectFoodsForMeal = () => {
+          const selected: typeof foodsData = [];
+
+          if (mealType === 'low-carb') {
+            selected.push(...categorizedFoods.protein.slice(0, 2));
+            selected.push(...categorizedFoods.fats.slice(0, 1));
+          } else if (mealType === 'pre-workout') {
+            selected.push(...categorizedFoods.protein.slice(0, 1));
+            selected.push(...categorizedFoods.carbs.slice(0, 2));
+          } else if (mealType === 'post-workout') {
+            selected.push(...categorizedFoods.protein.slice(0, 2));
+            selected.push(...categorizedFoods.carbs.slice(0, 1));
+          } else {
+            selected.push(...categorizedFoods.protein.slice(0, 1));
+            selected.push(...categorizedFoods.carbs.slice(0, 1));
+            selected.push(...categorizedFoods.fats.slice(0, 1));
+          }
+
+          if (selected.length === 0) {
+            selected.push(...foodsData.slice(0, 3));
+          }
+
+          return selected;
+        };
+
+        const selectedFoods = selectFoodsForMeal();
+        console.log(`Selected ${selectedFoods.length} foods for ${mealType} meal`);
+
+        for (const food of selectedFoods) {
+          if (currentMacros.calories >= caloriesForMeal * 0.95) break;
 
           const remainingProtein = Math.max(0, mealTargetMacros.protein - currentMacros.protein);
           const remainingCarbs = Math.max(0, mealTargetMacros.carbs - currentMacros.carbs);
