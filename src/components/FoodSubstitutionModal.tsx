@@ -67,9 +67,10 @@ export function FoodSubstitutionModal({
       const currentFats = currentFood.fats * currentFood.quantity;
       const currentCalories = currentFood.calories * currentFood.quantity;
 
-      const scored = allFoods.map(food => {
-        const tolerance = 0.3;
+      console.log('Current food totals:', { currentProtein, currentCarbs, currentFats, currentCalories });
+      console.log('Total foods to analyze:', allFoods?.length || 0);
 
+      const scored = allFoods.map(food => {
         let bestScore = Infinity;
         let bestQuantity = 1;
 
@@ -87,24 +88,33 @@ export function FoodSubstitutionModal({
           }
         }
 
-        const proteinMatch = Math.abs(food.protein * bestQuantity - currentProtein) / currentProtein;
+        const proteinMatch = Math.abs(food.protein * bestQuantity - currentProtein) / (currentProtein || 1);
         const carbsMatch = Math.abs(food.carbs * bestQuantity - currentCarbs) / (currentCarbs || 1);
         const fatsMatch = Math.abs(food.fats * bestQuantity - currentFats) / (currentFats || 1);
 
-        const isGoodMatch = proteinMatch <= tolerance && carbsMatch <= tolerance && fatsMatch <= tolerance;
+        const totalError = proteinMatch + carbsMatch + fatsMatch;
+        const isGoodMatch = totalError <= 1.5;
 
         return {
           ...food,
           score: bestScore,
           quantity: bestQuantity,
-          isGoodMatch
+          isGoodMatch,
+          proteinMatch,
+          carbsMatch,
+          fatsMatch
         };
       });
 
       const filtered = scored
         .filter(f => f.isGoodMatch)
         .sort((a, b) => a.score - b.score)
-        .slice(0, 10);
+        .slice(0, 20);
+
+      console.log('Similar foods found:', filtered.length);
+      if (filtered.length > 0) {
+        console.log('Best match:', filtered[0]);
+      }
 
       setSimilarFoods(filtered);
     } catch (error) {
@@ -155,47 +165,47 @@ export function FoodSubstitutionModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+      <div className="bg-[rgb(28,28,28)] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-[#f8c045]/10 flex justify-between items-center sticky top-0 bg-[rgb(28,28,28)]">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-[#f8c045]">
               {language === 'pt' ? 'Substituir Alimento' : 'Substitute Food'}
             </h2>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-400 mt-1">
               {language === 'pt' ? 'Alimentos similares a ' : 'Foods similar to '}
               <span className="font-semibold">{currentFood.name}</span>
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-400 hover:text-[#f8c045]">
             <X className="w-6 h-6" />
           </button>
         </div>
 
         <div className="p-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-gray-900 mb-2">
+          <div className="bg-[rgb(23,23,23)] border border-[#f8c045]/20 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold text-[#f8c045] mb-2">
               {language === 'pt' ? 'Alimento Atual' : 'Current Food'}
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
               <div>
-                <span className="text-gray-600">{language === 'pt' ? 'Nome' : 'Name'}:</span>
-                <p className="font-semibold">{currentFood.name}</p>
+                <span className="text-gray-400">{language === 'pt' ? 'Nome' : 'Name'}:</span>
+                <p className="font-semibold text-white">{currentFood.name}</p>
               </div>
               <div>
-                <span className="text-gray-600">{language === 'pt' ? 'Proteína' : 'Protein'}:</span>
-                <p className="font-semibold">{currentTotalProtein.toFixed(1)}g</p>
+                <span className="text-gray-400">{language === 'pt' ? 'Proteína' : 'Protein'}:</span>
+                <p className="font-semibold text-white">{currentTotalProtein.toFixed(1)}g</p>
               </div>
               <div>
-                <span className="text-gray-600">{language === 'pt' ? 'Carboidratos' : 'Carbs'}:</span>
-                <p className="font-semibold">{currentTotalCarbs.toFixed(1)}g</p>
+                <span className="text-gray-400">{language === 'pt' ? 'Carboidratos' : 'Carbs'}:</span>
+                <p className="font-semibold text-white">{currentTotalCarbs.toFixed(1)}g</p>
               </div>
               <div>
-                <span className="text-gray-600">{language === 'pt' ? 'Gorduras' : 'Fats'}:</span>
-                <p className="font-semibold">{currentTotalFats.toFixed(1)}g</p>
+                <span className="text-gray-400">{language === 'pt' ? 'Gorduras' : 'Fats'}:</span>
+                <p className="font-semibold text-white">{currentTotalFats.toFixed(1)}g</p>
               </div>
               <div>
-                <span className="text-gray-600">{language === 'pt' ? 'Calorias' : 'Calories'}:</span>
-                <p className="font-semibold">{currentTotalCalories.toFixed(0)} kcal</p>
+                <span className="text-gray-400">{language === 'pt' ? 'Calorias' : 'Calories'}:</span>
+                <p className="font-semibold text-white">{currentTotalCalories.toFixed(0)} kcal</p>
               </div>
             </div>
           </div>
@@ -214,7 +224,7 @@ export function FoodSubstitutionModal({
             </div>
           ) : (
             <div className="space-y-3">
-              <h3 className="font-semibold text-gray-900 mb-3">
+              <h3 className="font-semibold text-[#f8c045] mb-3">
                 {language === 'pt' ? 'Alimentos Similares' : 'Similar Foods'} ({similarFoods.length})
               </h3>
               {similarFoods.map((food: any) => {
@@ -234,23 +244,23 @@ export function FoodSubstitutionModal({
                     onClick={() => setSelectedFoodId(food.id)}
                     className={`border rounded-lg p-4 cursor-pointer transition-all ${
                       selectedFoodId === food.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                        ? 'border-[#f8c045] bg-[rgb(23,23,23)]'
+                        : 'border-[#f8c045]/20 hover:border-[#f8c045]/50 hover:bg-[rgb(23,23,23)]'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <h4 className="font-semibold text-gray-900">{food.name}</h4>
-                        <p className="text-sm text-gray-600">
+                        <h4 className="font-semibold text-white">{food.name}</h4>
+                        <p className="text-sm text-gray-400">
                           {language === 'pt' ? 'Quantidade' : 'Quantity'}: {food.quantity.toFixed(2)}
                         </p>
                       </div>
-                      <ArrowRight className="w-5 h-5 text-gray-400" />
+                      <ArrowRight className="w-5 h-5 text-[#f8c045]" />
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                       <div>
-                        <span className="text-gray-600">{language === 'pt' ? 'Proteína' : 'Protein'}:</span>
+                        <span className="text-gray-400">{language === 'pt' ? 'Proteína' : 'Protein'}:</span>
                         <p className="font-semibold">
                           {totalProtein.toFixed(1)}g
                           <span className={proteinDiff >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -259,7 +269,7 @@ export function FoodSubstitutionModal({
                         </p>
                       </div>
                       <div>
-                        <span className="text-gray-600">{language === 'pt' ? 'Carboidratos' : 'Carbs'}:</span>
+                        <span className="text-gray-400">{language === 'pt' ? 'Carboidratos' : 'Carbs'}:</span>
                         <p className="font-semibold">
                           {totalCarbs.toFixed(1)}g
                           <span className={carbsDiff >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -268,7 +278,7 @@ export function FoodSubstitutionModal({
                         </p>
                       </div>
                       <div>
-                        <span className="text-gray-600">{language === 'pt' ? 'Gorduras' : 'Fats'}:</span>
+                        <span className="text-gray-400">{language === 'pt' ? 'Gorduras' : 'Fats'}:</span>
                         <p className="font-semibold">
                           {totalFats.toFixed(1)}g
                           <span className={fatsDiff >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -277,7 +287,7 @@ export function FoodSubstitutionModal({
                         </p>
                       </div>
                       <div>
-                        <span className="text-gray-600">{language === 'pt' ? 'Calorias' : 'Calories'}:</span>
+                        <span className="text-gray-400">{language === 'pt' ? 'Calorias' : 'Calories'}:</span>
                         <p className="font-semibold">
                           {totalCalories.toFixed(0)} kcal
                           <span className={caloriesDiff >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -293,17 +303,17 @@ export function FoodSubstitutionModal({
           )}
         </div>
 
-        <div className="p-6 border-t border-gray-200 flex justify-end gap-3 sticky bottom-0 bg-white">
+        <div className="p-6 border-t border-[#f8c045]/10 flex justify-end gap-3 sticky bottom-0 bg-[rgb(28,28,28)]">
           <button
             onClick={onClose}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="px-6 py-2 border border-[#f8c045]/20 rounded-lg text-gray-400 hover:bg-[rgb(23,23,23)]"
           >
             {language === 'pt' ? 'Cancelar' : 'Cancel'}
           </button>
           <button
             onClick={handleSubstitute}
             disabled={!selectedFoodId || loading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-[#f8c045] text-black rounded-lg hover:bg-[#e6b041] disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
             {loading
               ? language === 'pt'
