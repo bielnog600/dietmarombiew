@@ -427,7 +427,71 @@ const DietPlan = () => {
           };
         };
 
-        const categorizedFoods = categorizeFoods(foodsData);
+        const isFoodValidForMeal = (food: typeof foodsData[0], mealName: string, mealIndex: number): boolean => {
+          const categoryName = food.food_categories?.name?.toLowerCase() || '';
+          const mealLower = mealName.toLowerCase();
+
+          console.log(`Checking food "${food.name}" (category: "${food.food_categories?.name}") for meal "${mealName}"`);
+
+          if (mealLower.includes('café') || mealLower.includes('breakfast') || mealIndex === 0) {
+            const valid = categoryName.includes('café') ||
+                   categoryName.includes('breakfast') ||
+                   categoryName.includes('manhã');
+            console.log(`  -> Café da manhã check: ${valid}`);
+            return valid;
+          }
+
+          if (mealLower.includes('lanche') || mealLower.includes('snack')) {
+            const valid = categoryName.includes('lanche') ||
+                   categoryName.includes('snack') ||
+                   categoryName.includes('meio');
+            console.log(`  -> Lanche check: ${valid}`);
+            return valid;
+          }
+
+          if (mealLower.includes('almoço') || mealLower.includes('lunch')) {
+            const valid = categoryName.includes('almoço') ||
+                   categoryName.includes('lunch') ||
+                   categoryName.includes('proteína');
+            console.log(`  -> Almoço check: ${valid}`);
+            return valid;
+          }
+
+          if (mealLower.includes('jantar') || mealLower.includes('dinner') || mealLower.includes('ceia')) {
+            const valid = categoryName.includes('jantar') ||
+                   categoryName.includes('dinner') ||
+                   categoryName.includes('ceia') ||
+                   categoryName.includes('proteína');
+            console.log(`  -> Jantar check: ${valid}`);
+            return valid;
+          }
+
+          if (mealLower.includes('pré') || mealLower.includes('pre') || mealLower.includes('antes')) {
+            const valid = categoryName.includes('treino') ||
+                   categoryName.includes('workout') ||
+                   categoryName.includes('carboidrato') ||
+                   categoryName.includes('proteína');
+            console.log(`  -> Pré-treino check: ${valid}`);
+            return valid;
+          }
+
+          if (mealLower.includes('pós') || mealLower.includes('post') || mealLower.includes('depois')) {
+            const valid = categoryName.includes('treino') ||
+                   categoryName.includes('workout') ||
+                   categoryName.includes('carboidrato') ||
+                   categoryName.includes('proteína');
+            console.log(`  -> Pós-treino check: ${valid}`);
+            return valid;
+          }
+
+          console.log(`  -> Default: true (no specific meal requirement)`);
+          return true;
+        };
+
+        const validFoods = foodsData.filter(f => isFoodValidForMeal(f, meal.name, i));
+        console.log(`Filtered foods for "${meal.name}": ${validFoods.length} valid out of ${foodsData.length} total`);
+
+        const categorizedFoods = categorizeFoods(validFoods);
 
         const selectFoodsForMeal = () => {
           const selected: typeof foodsData = [];
@@ -448,14 +512,15 @@ const DietPlan = () => {
           }
 
           if (selected.length === 0) {
-            selected.push(...foodsData.slice(0, 3));
+            console.log(`No categorized foods found, using first ${Math.min(3, validFoods.length)} valid foods`);
+            selected.push(...validFoods.slice(0, 3));
           }
 
           return selected;
         };
 
         const selectedFoods = selectFoodsForMeal();
-        console.log(`Selected ${selectedFoods.length} foods for ${mealType} meal`);
+        console.log(`Selected ${selectedFoods.length} foods for ${mealType} meal:`, selectedFoods.map(f => f.name));
 
         for (const food of selectedFoods) {
           if (currentMacros.calories >= caloriesForMeal * 0.95) break;
