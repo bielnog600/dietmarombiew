@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Apple, UtensilsCrossed, Scale, Clock, User, Camera, Droplet, Lock, Home, BarChart as ChartBar, Settings as SettingsIcon } from 'lucide-react';
+import { Apple, UtensilsCrossed, Scale, Clock, User, Camera, Droplet, Lock, Home, BarChart as ChartBar, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import type { Diet, Food, MacroDistribution } from '../types';
 import AddFoodModal from '../components/AddFoodModal';
+import AutoDistributeFoodsModal from '../components/AutoDistributeFoodsModal';
 import Progress from '../components/Progress';
 import Settings from '../components/Settings';
 import DietPlanMeal from '../components/DietPlanMeal';
@@ -23,6 +24,7 @@ const DietPlan = () => {
   const [error, setError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showAddFoodModal, setShowAddFoodModal] = useState(false);
+  const [showAutoDistributeModal, setShowAutoDistributeModal] = useState(false);
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [currentCard, setCurrentCard] = useState(0);
@@ -306,6 +308,109 @@ const DietPlan = () => {
     }
   };
 
+  const handleAutoDistribute = async (selectedFoodIds: string[]) => {
+    if (!diet || selectedFoodIds.length === 0) return;
+
+    setLoading(true);
+    try {
+      const { data: foodsData, error: foodsError } = await supabase
+        .from('foods')
+        .select('*')
+        .in('id', selectedFoodIds);
+
+      if (foodsError) throw foodsError;
+
+      const targetProtein = diet.macros?.protein || Math.round((diet.calories * 0.3) / 4);
+      const targetCarbs = diet.macros?.carbs || Math.round((diet.calories * 0.45) / 4);
+      const targetFats = diet.macros?.fats || Math.round((diet.calories * 0.25) / 9);
+
+      const mealsForDay = diet.meals?.filter(m => m.day_of_week === selectedDayOfWeek) || [];
+      const numMeals = mealsForDay.length;
+
+      if (numMeals === 0) return;
+
+      await supabase
+        .from('meal_foods')
+        .delete()
+        .in('meal_id', mealsForDay.map(m => m.id));
+
+      const proteinPerMeal = targetProtein / numMeals;
+      const carbsPerMeal = targetCarbs / numMeals;
+      const fatsPerMeal = targetFats / numMeals;
+      const caloriesPerMeal = diet.calories / numMeals;
+
+      for (const meal of mealsForDay) {
+        const mealTargetMacros = {
+          protein: proteinPerMeal,
+          carbs: carbsPerMeal,
+          fats: fatsPerMeal
+        };
+
+        const currentMacros = { protein: 0, carbs: 0, fats: 0, calories: 0 };
+        const mealFoods: Array<{ meal_id: string; food_id: string; quantity: number }> = [];
+
+        const sortedFoods = [...foodsData].sort((a, b) => {
+          const aScore = Math.abs(a.protein - mealTargetMacros.protein) +
+                        Math.abs(a.carbs - mealTargetMacros.carbs) +
+                        Math.abs(a.fats - mealTargetMacros.fats);
+          const bScore = Math.abs(b.protein - mealTargetMacros.protein) +
+                        Math.abs(b.carbs - mealTargetMacros.carbs) +
+                        Math.abs(b.fats - mealTargetMacros.fats);
+          return aScore - bScore;
+        });
+
+        for (const food of sortedFoods) {
+          if (currentMacros.calories >= caloriesPerMeal * 0.95) break;
+
+          const remainingProtein = Math.max(0, mealTargetMacros.protein - currentMacros.protein);
+          const remainingCarbs = Math.max(0, mealTargetMacros.carbs - currentMacros.carbs);
+          const remainingFats = Math.max(0, mealTargetMacros.fats - currentMacros.fats);
+
+          let portionSize = 100;
+
+          if (food.protein > 0 && remainingProtein > 0) {
+            portionSize = Math.min(portionSize, (remainingProtein / food.protein) * 100);
+          }
+          if (food.carbs > 0 && remainingCarbs > 0) {
+            portionSize = Math.min(portionSize, (remainingCarbs / food.carbs) * 100);
+          }
+          if (food.fats > 0 && remainingFats > 0) {
+            portionSize = Math.min(portionSize, (remainingFats / food.fats) * 100);
+          }
+
+          portionSize = Math.min(300, Math.max(25, portionSize));
+          const quantity = portionSize / food.portion_size;
+
+          currentMacros.protein += food.protein * quantity;
+          currentMacros.carbs += food.carbs * quantity;
+          currentMacros.fats += food.fats * quantity;
+          currentMacros.calories += food.calories * quantity;
+
+          mealFoods.push({
+            meal_id: meal.id,
+            food_id: food.id,
+            quantity
+          });
+        }
+
+        if (mealFoods.length > 0) {
+          const { error: insertError } = await supabase
+            .from('meal_foods')
+            .insert(mealFoods);
+
+          if (insertError) throw insertError;
+        }
+      }
+
+      await fetchLatestDiet();
+    } catch (err) {
+      console.error('Error auto-distributing foods:', err);
+      setError('Erro ao distribuir alimentos automaticamente');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isPlanExpired = user?.plan_expiry && new Date(user.plan_expiry) < new Date();
 
   if (loading) {
@@ -576,6 +681,15 @@ const DietPlan = () => {
                           {totalMacros.calories - diet.calories > 0 ? '+' : ''}{totalMacros.calories - diet.calories} kcal
                         </p>
                       </div>
+                      <div className="pt-2">
+                        <button
+                          onClick={() => setShowAutoDistributeModal(true)}
+                          className="w-full flex items-center justify-center bg-[#f8c045] text-[rgb(23,23,23)] py-2 px-3 rounded-lg hover:bg-[#e6b041] transition font-semibold text-sm"
+                        >
+                          <Sparkles size={16} className="mr-2" />
+                          Distribuir Automaticamente
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -785,6 +899,15 @@ const DietPlan = () => {
           }}
           mealId={selectedMealId}
           onFoodAdded={handleFoodAdded}
+        />
+      )}
+
+      {showAutoDistributeModal && diet && (
+        <AutoDistributeFoodsModal
+          isOpen={showAutoDistributeModal}
+          onClose={() => setShowAutoDistributeModal(false)}
+          dietId={diet.id}
+          onDistribute={handleAutoDistribute}
         />
       )}
 
