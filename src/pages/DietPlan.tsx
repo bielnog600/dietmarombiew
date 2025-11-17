@@ -527,12 +527,17 @@ const DietPlan = () => {
 
         const categorizedFoods = categorizeFoods(validFoods);
 
-        const proteinFood = categorizedFoods.protein[0];
-        const carbFood = categorizedFoods.carbs[0];
-        const fatFood = categorizedFoods.fats[0];
+        let proteinFood = categorizedFoods.protein[0];
+        let carbFood = categorizedFoods.carbs.find(f => f.id !== proteinFood?.id) || categorizedFoods.carbs[0];
+        let fatFood = categorizedFoods.fats.find(f => f.id !== proteinFood?.id && f.id !== carbFood?.id) || categorizedFoods.fats[0];
 
         if (!proteinFood || !carbFood || !fatFood) {
           console.log(`Missing food types for meal "${meal.name}": protein=${!!proteinFood}, carbs=${!!carbFood}, fats=${!!fatFood}`);
+          continue;
+        }
+
+        if (proteinFood.id === carbFood.id || proteinFood.id === fatFood.id || carbFood.id === fatFood.id) {
+          console.log(`Duplicate foods detected for meal "${meal.name}": protein=${proteinFood.name}, carbs=${carbFood.name}, fats=${fatFood.name}`);
           continue;
         }
 
