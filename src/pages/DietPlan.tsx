@@ -419,15 +419,27 @@ const DietPlan = () => {
         const mealFoods: Array<{ meal_id: string; food_id: string; quantity: number }> = [];
 
         const categorizeFoods = (foods: typeof foodsData) => {
-          return {
-            protein: foods.filter(f => f.protein >= 15 && f.protein > f.carbs && f.protein > f.fats),
-            carbs: foods.filter(f => f.carbs >= 15 && f.carbs > f.protein && f.carbs > f.fats),
-            fats: foods.filter(f => f.fats >= 5 && f.fats > f.protein && f.fats > f.carbs),
-            balanced: foods.filter(f => {
-              const total = f.protein + f.carbs + f.fats;
-              return total > 0 && Math.max(f.protein, f.carbs, f.fats) / total < 0.6;
-            })
-          };
+          const protein = foods.filter(f => f.protein >= 10 && f.protein >= f.carbs && f.protein >= f.fats);
+          const carbs = foods.filter(f => f.carbs >= 10 && f.carbs >= f.protein && f.carbs >= f.fats);
+          const fats = foods.filter(f => f.fats >= 3 && f.fats >= f.protein && f.fats >= f.carbs);
+
+          if (protein.length === 0) {
+            protein.push(...foods.filter(f => f.protein >= 5).sort((a, b) => b.protein - a.protein).slice(0, 1));
+          }
+          if (carbs.length === 0) {
+            carbs.push(...foods.filter(f => f.carbs >= 5).sort((a, b) => b.carbs - a.carbs).slice(0, 1));
+          }
+          if (fats.length === 0) {
+            fats.push(...foods.filter(f => f.fats >= 1).sort((a, b) => b.fats - a.fats).slice(0, 1));
+          }
+
+          console.log('Categorized foods:', {
+            protein: protein.map(f => f.name),
+            carbs: carbs.map(f => f.name),
+            fats: fats.map(f => f.name)
+          });
+
+          return { protein, carbs, fats };
         };
 
         const isFoodValidForMeal = (food: typeof foodsData[0], mealName: string, mealIndex: number): boolean => {
@@ -457,6 +469,9 @@ const DietPlan = () => {
             const valid = categoryName.includes('lanche') ||
                    categoryName.includes('snack') ||
                    categoryName.includes('meio') ||
+                   categoryName.includes('café') ||
+                   categoryName.includes('proteína') ||
+                   categoryName.includes('carboidrato') ||
                    isFlexibleCategory;
             console.log(`  -> Lanche check: ${valid}`);
             return valid;
