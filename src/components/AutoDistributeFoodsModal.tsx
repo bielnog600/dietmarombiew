@@ -90,15 +90,19 @@ export default function AutoDistributeFoodsModal({
 
   const handleDistribute = async () => {
     if (selectedFoodIds.size === 0) {
+      console.log('No foods selected');
       return;
     }
 
+    console.log('Distributing foods:', Array.from(selectedFoodIds));
     setLoading(true);
     try {
       await onDistribute(Array.from(selectedFoodIds));
+      console.log('Distribution completed, closing modal');
       onClose();
     } catch (err) {
       console.error('Error distributing foods:', err);
+      alert('Erro ao distribuir alimentos: ' + (err as Error).message);
     } finally {
       setLoading(false);
     }

@@ -309,9 +309,15 @@ const DietPlan = () => {
   };
 
   const handleAutoDistribute = async (selectedFoodIds: string[]) => {
-    if (!diet || selectedFoodIds.length === 0) return;
+    if (!diet || selectedFoodIds.length === 0) {
+      console.log('No diet or no foods selected');
+      return;
+    }
 
+    console.log('Starting auto-distribute with', selectedFoodIds.length, 'foods');
     setLoading(true);
+    setError('');
+
     try {
       const { data: foodsData, error: foodsError } = await supabase
         .from('foods')
@@ -320,26 +326,47 @@ const DietPlan = () => {
 
       if (foodsError) throw foodsError;
 
+      console.log('Fetched foods:', foodsData?.length);
+
       const targetProtein = diet.macros?.protein || Math.round((diet.calories * 0.3) / 4);
       const targetCarbs = diet.macros?.carbs || Math.round((diet.calories * 0.45) / 4);
       const targetFats = diet.macros?.fats || Math.round((diet.calories * 0.25) / 9);
 
+      console.log('Target macros:', { targetProtein, targetCarbs, targetFats });
+
       const mealsForDay = diet.meals?.filter(m => m.day_of_week === selectedDayOfWeek) || [];
       const numMeals = mealsForDay.length;
 
-      if (numMeals === 0) return;
+      console.log('Meals for day', selectedDayOfWeek, ':', numMeals);
 
-      await supabase
+      if (numMeals === 0) {
+        setError('Nenhuma refeição encontrada para este dia');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Deleting existing meal_foods for meals:', mealsForDay.map(m => m.id));
+      const { error: deleteError } = await supabase
         .from('meal_foods')
         .delete()
         .in('meal_id', mealsForDay.map(m => m.id));
+
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('Deleted existing foods');
 
       const proteinPerMeal = targetProtein / numMeals;
       const carbsPerMeal = targetCarbs / numMeals;
       const fatsPerMeal = targetFats / numMeals;
       const caloriesPerMeal = diet.calories / numMeals;
 
+      console.log('Per meal targets:', { proteinPerMeal, carbsPerMeal, fatsPerMeal, caloriesPerMeal });
+
       for (const meal of mealsForDay) {
+        console.log('Processing meal:', meal.name);
         const mealTargetMacros = {
           protein: proteinPerMeal,
           carbs: carbsPerMeal,
@@ -393,19 +420,27 @@ const DietPlan = () => {
           });
         }
 
+        console.log('Meal foods to insert:', mealFoods.length);
+
         if (mealFoods.length > 0) {
           const { error: insertError } = await supabase
             .from('meal_foods')
             .insert(mealFoods);
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error('Insert error:', insertError);
+            throw insertError;
+          }
+          console.log('Inserted', mealFoods.length, 'foods for meal');
         }
       }
 
+      console.log('Distribution complete, fetching updated diet');
       await fetchLatestDiet();
-    } catch (err) {
+      console.log('Diet fetched successfully');
+    } catch (err: any) {
       console.error('Error auto-distributing foods:', err);
-      setError('Erro ao distribuir alimentos automaticamente');
+      setError(err.message || 'Erro ao distribuir alimentos automaticamente');
     } finally {
       setLoading(false);
     }
