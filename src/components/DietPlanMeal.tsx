@@ -28,7 +28,7 @@ interface DietPlanMealProps {
 export default function DietPlanMeal({
   meal,
   index,
-  dietId,
+  allMeals,
   onAddFood,
   onDeleteFood,
   onUpdatePortion,
