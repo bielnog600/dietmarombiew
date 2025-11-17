@@ -135,23 +135,52 @@ function calculateOptimalQuantities(
   const proteinFoods: number[] = [];
   const carbFoods: number[] = [];
   const fatFoods: number[] = [];
+  const assigned = new Set<number>();
 
   for (let i = 0; i < n; i++) {
     const food = foods[i];
-    if (food.protein >= food.carbs && food.protein >= food.fats) {
+    const maxMacro = Math.max(food.protein, food.carbs, food.fats);
+
+    if (food.protein === maxMacro && !assigned.has(i)) {
       proteinFoods.push(i);
-    }
-    if (food.carbs >= food.protein && food.carbs >= food.fats) {
+      assigned.add(i);
+    } else if (food.carbs === maxMacro && !assigned.has(i)) {
       carbFoods.push(i);
-    }
-    if (food.fats >= food.protein && food.fats >= food.carbs) {
+      assigned.add(i);
+    } else if (food.fats === maxMacro && !assigned.has(i)) {
       fatFoods.push(i);
+      assigned.add(i);
     }
   }
 
-  if (proteinFoods.length === 0) proteinFoods.push(0);
-  if (carbFoods.length === 0) carbFoods.push(n > 1 ? 1 : 0);
-  if (fatFoods.length === 0) fatFoods.push(n > 2 ? 2 : 0);
+  if (proteinFoods.length === 0 && n > 0) {
+    proteinFoods.push(0);
+    assigned.add(0);
+  }
+  if (carbFoods.length === 0 && n > 1) {
+    for (let i = 0; i < n; i++) {
+      if (!assigned.has(i)) {
+        carbFoods.push(i);
+        assigned.add(i);
+        break;
+      }
+    }
+  }
+  if (fatFoods.length === 0 && n > 2) {
+    for (let i = 0; i < n; i++) {
+      if (!assigned.has(i)) {
+        fatFoods.push(i);
+        assigned.add(i);
+        break;
+      }
+    }
+  }
+
+  console.log('Food categories:', {
+    protein: proteinFoods.map(i => foods[i].name),
+    carbs: carbFoods.map(i => foods[i].name),
+    fats: fatFoods.map(i => foods[i].name)
+  });
 
   for (const idx of proteinFoods) {
     quantities[idx] = targetProtein / (foods[idx].protein * proteinFoods.length || 1);
@@ -163,7 +192,7 @@ function calculateOptimalQuantities(
     quantities[idx] = targetFats / (foods[idx].fats * fatFoods.length || 1);
   }
 
-  for (let iteration = 0; iteration < 10; iteration++) {
+  for (let iteration = 0; iteration < 20; iteration++) {
     const currentProtein = quantities.reduce((sum, q, i) => sum + q * foods[i].protein, 0);
     const currentCarbs = quantities.reduce((sum, q, i) => sum + q * foods[i].carbs, 0);
     const currentFats = quantities.reduce((sum, q, i) => sum + q * foods[i].fats, 0);
@@ -172,23 +201,29 @@ function calculateOptimalQuantities(
     const carbsError = targetCarbs - currentCarbs;
     const fatsError = targetFats - currentFats;
 
-    if (Math.abs(proteinError) < 1 && Math.abs(carbsError) < 1 && Math.abs(fatsError) < 1) {
+    if (Math.abs(proteinError) < 0.5 && Math.abs(carbsError) < 0.5 && Math.abs(fatsError) < 0.5) {
+      console.log(`Converged after ${iteration + 1} iterations`);
       break;
     }
 
+    const learningRate = 0.5;
+
     for (const idx of proteinFoods) {
-      if (foods[idx].protein > 0) {
-        quantities[idx] += (proteinError / proteinFoods.length) / foods[idx].protein;
+      if (foods[idx].protein > 0.1) {
+        const adjustment = (proteinError / proteinFoods.length) / foods[idx].protein * learningRate;
+        quantities[idx] = Math.max(0.1, quantities[idx] + adjustment);
       }
     }
     for (const idx of carbFoods) {
-      if (foods[idx].carbs > 0) {
-        quantities[idx] += (carbsError / carbFoods.length) / foods[idx].carbs;
+      if (foods[idx].carbs > 0.1) {
+        const adjustment = (carbsError / carbFoods.length) / foods[idx].carbs * learningRate;
+        quantities[idx] = Math.max(0.1, quantities[idx] + adjustment);
       }
     }
     for (const idx of fatFoods) {
-      if (foods[idx].fats > 0) {
-        quantities[idx] += (fatsError / fatFoods.length) / foods[idx].fats;
+      if (foods[idx].fats > 0.1) {
+        const adjustment = (fatsError / fatFoods.length) / foods[idx].fats * learningRate;
+        quantities[idx] = Math.max(0.1, quantities[idx] + adjustment);
       }
     }
   }
