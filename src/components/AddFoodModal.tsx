@@ -308,6 +308,15 @@ export default function AddFoodModal({ isOpen, onClose, mealId, onFoodAdded, ski
                   const foodName = getFoodName(food).toLowerCase();
                   return foodName.includes(searchTerm.toLowerCase());
                 })
+                .reduce((uniqueFoods: Food[], food) => {
+                  const isDuplicate = uniqueFoods.some(
+                    f => getFoodName(f).toLowerCase() === getFoodName(food).toLowerCase()
+                  );
+                  if (!isDuplicate) {
+                    uniqueFoods.push(food);
+                  }
+                  return uniqueFoods;
+                }, [])
                 .map((food) => (
                   <option key={food.id} value={food.id}>
                     {getFoodName(food)}
