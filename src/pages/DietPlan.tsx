@@ -733,10 +733,12 @@ const DietPlan = () => {
                     key={meal.id}
                     meal={meal}
                     index={index}
+                    dietId={diet.id}
                     onAddFood={() => handleAddFood(meal.id)}
                     onDeleteFood={handleDeleteFood}
                     onUpdatePortion={handleUpdatePortion}
                     onSubstituteFood={fetchLatestDiet}
+                    onTransferFood={fetchLatestDiet}
                     deleteLoading={deleteLoading}
                     mealMacros={mealMacros}
                   />

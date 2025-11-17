@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, ArrowRightLeft } from 'lucide-react';
 import { useMealTranslation } from '../translations/meals';
 import { useTranslation } from '../translations';
 import { useLanguageStore } from '../store/languageStore';
 import { FoodSubstitutionModal } from './FoodSubstitutionModal';
+import { TransferFoodModal } from './TransferFoodModal';
 import type { Meal } from '../types';
 
 interface DietPlanMealProps {
   meal: Meal;
   index: number;
+  dietId: string;
   onAddFood: () => void;
   onDeleteFood: (mealFoodId: string) => void;
   onUpdatePortion: (mealFoodId: string, newGrams: number) => void;
   onSubstituteFood: () => void;
+  onTransferFood: () => void;
   deleteLoading: boolean;
   mealMacros: {
     calories: number;
@@ -25,10 +28,12 @@ interface DietPlanMealProps {
 export default function DietPlanMeal({
   meal,
   index,
+  dietId,
   onAddFood,
   onDeleteFood,
   onUpdatePortion,
   onSubstituteFood,
+  onTransferFood,
   deleteLoading,
   mealMacros
 }: DietPlanMealProps) {
@@ -47,6 +52,11 @@ export default function DietPlanMeal({
   const [tempPortionValue, setTempPortionValue] = useState<string>('');
   const [substitutionModalOpen, setSubstitutionModalOpen] = useState(false);
   const [selectedFoodForSubstitution, setSelectedFoodForSubstitution] = useState<any>(null);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [selectedFoodForTransfer, setSelectedFoodForTransfer] = useState<{
+    mealFoodId: string;
+    foodName: string;
+  } | null>(null);
 
   const handlePortionChange = (mealFoodId: string, currentGrams: number, increment: boolean) => {
     const step = 10; // Adjust portion by 10g increments
@@ -189,13 +199,28 @@ export default function DietPlanMeal({
                     <span>G: {fats}g</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => onDeleteFood(mealFood.id)}
-                  className="text-gray-400 hover:text-red-500 transition ml-4"
-                  disabled={deleteLoading}
-                >
-                  <Trash2 size={18} className={deleteLoading ? 'animate-spin' : ''} />
-                </button>
+                <div className="flex items-center gap-2 ml-4">
+                  <button
+                    onClick={() => {
+                      setSelectedFoodForTransfer({
+                        mealFoodId: mealFood.id,
+                        foodName: getFoodName(mealFood.food)
+                      });
+                      setTransferModalOpen(true);
+                    }}
+                    className="text-gray-400 hover:text-[#f8c045] transition"
+                    title={language === 'pt' ? 'Transferir para outra refeição' : 'Transfer to another meal'}
+                  >
+                    <ArrowRightLeft size={18} />
+                  </button>
+                  <button
+                    onClick={() => onDeleteFood(mealFood.id)}
+                    className="text-gray-400 hover:text-red-500 transition"
+                    disabled={deleteLoading}
+                  >
+                    <Trash2 size={18} className={deleteLoading ? 'animate-spin' : ''} />
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -228,6 +253,25 @@ export default function DietPlanMeal({
             onSubstituteFood();
             setSubstitutionModalOpen(false);
             setSelectedFoodForSubstitution(null);
+          }}
+        />
+      )}
+
+      {selectedFoodForTransfer && (
+        <TransferFoodModal
+          isOpen={transferModalOpen}
+          onClose={() => {
+            setTransferModalOpen(false);
+            setSelectedFoodForTransfer(null);
+          }}
+          currentMeal={meal}
+          mealFoodId={selectedFoodForTransfer.mealFoodId}
+          foodName={selectedFoodForTransfer.foodName}
+          dietId={dietId}
+          onTransfer={() => {
+            onTransferFood();
+            setTransferModalOpen(false);
+            setSelectedFoodForTransfer(null);
           }}
         />
       )}
