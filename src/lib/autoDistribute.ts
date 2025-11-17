@@ -121,78 +121,31 @@ function calculateOptimalQuantities(
   targetFats: number
 ): number[] {
   const n = foods.length;
-  const quantities = new Array(n).fill(0);
+
+  if (n === 0) return [];
 
   if (n === 1) {
     const food = foods[0];
-    const proteinQ = targetProtein / (food.protein || 1);
-    const carbsQ = targetCarbs / (food.carbs || 1);
-    const fatsQ = targetFats / (food.fats || 1);
-    quantities[0] = Math.max(0.5, Math.min(5, (proteinQ + carbsQ + fatsQ) / 3));
-    return quantities;
+    const calsFromProtein = targetProtein * 4;
+    const calsFromCarbs = targetCarbs * 4;
+    const calsFromFats = targetFats * 9;
+    const totalTargetCals = calsFromProtein + calsFromCarbs + calsFromFats;
+    const quantity = totalTargetCals / (food.calories || 1);
+    return [Math.max(0.5, Math.min(10, quantity))];
   }
 
-  const proteinFoods: number[] = [];
-  const carbFoods: number[] = [];
-  const fatFoods: number[] = [];
-  const assigned = new Set<number>();
-
+  const A: number[][] = [];
   for (let i = 0; i < n; i++) {
-    const food = foods[i];
-    const maxMacro = Math.max(food.protein, food.carbs, food.fats);
-
-    if (food.protein === maxMacro && !assigned.has(i)) {
-      proteinFoods.push(i);
-      assigned.add(i);
-    } else if (food.carbs === maxMacro && !assigned.has(i)) {
-      carbFoods.push(i);
-      assigned.add(i);
-    } else if (food.fats === maxMacro && !assigned.has(i)) {
-      fatFoods.push(i);
-      assigned.add(i);
-    }
+    A.push([foods[i].protein, foods[i].carbs, foods[i].fats]);
   }
 
-  if (proteinFoods.length === 0 && n > 0) {
-    proteinFoods.push(0);
-    assigned.add(0);
-  }
-  if (carbFoods.length === 0 && n > 1) {
-    for (let i = 0; i < n; i++) {
-      if (!assigned.has(i)) {
-        carbFoods.push(i);
-        assigned.add(i);
-        break;
-      }
-    }
-  }
-  if (fatFoods.length === 0 && n > 2) {
-    for (let i = 0; i < n; i++) {
-      if (!assigned.has(i)) {
-        fatFoods.push(i);
-        assigned.add(i);
-        break;
-      }
-    }
-  }
+  const b = [targetProtein, targetCarbs, targetFats];
 
-  console.log('Food categories:', {
-    protein: proteinFoods.map(i => foods[i].name),
-    carbs: carbFoods.map(i => foods[i].name),
-    fats: fatFoods.map(i => foods[i].name)
-  });
+  const quantities = solveLeastSquares(A, b);
 
-  for (const idx of proteinFoods) {
-    quantities[idx] = targetProtein / (foods[idx].protein * proteinFoods.length || 1);
-  }
-  for (const idx of carbFoods) {
-    quantities[idx] = targetCarbs / (foods[idx].carbs * carbFoods.length || 1);
-  }
-  for (const idx of fatFoods) {
-    quantities[idx] = targetFats / (foods[idx].fats * fatFoods.length || 1);
-  }
+  console.log('Initial quantities:', quantities.map((q, i) => `${foods[i].name}: ${q.toFixed(2)}`));
 
-  for (let iteration = 0; iteration < 20; iteration++) {
+  for (let iteration = 0; iteration < 50; iteration++) {
     const currentProtein = quantities.reduce((sum, q, i) => sum + q * foods[i].protein, 0);
     const currentCarbs = quantities.reduce((sum, q, i) => sum + q * foods[i].carbs, 0);
     const currentFats = quantities.reduce((sum, q, i) => sum + q * foods[i].fats, 0);
@@ -201,29 +154,29 @@ function calculateOptimalQuantities(
     const carbsError = targetCarbs - currentCarbs;
     const fatsError = targetFats - currentFats;
 
-    if (Math.abs(proteinError) < 0.5 && Math.abs(carbsError) < 0.5 && Math.abs(fatsError) < 0.5) {
-      console.log(`Converged after ${iteration + 1} iterations`);
+    const totalError = Math.abs(proteinError) + Math.abs(carbsError) + Math.abs(fatsError);
+
+    if (totalError < 1.5) {
+      console.log(`Converged after ${iteration + 1} iterations (error: ${totalError.toFixed(2)}g)`);
       break;
     }
 
-    const learningRate = 0.5;
+    for (let i = 0; i < n; i++) {
+      const food = foods[i];
+      const totalMacro = food.protein + food.carbs + food.fats;
 
-    for (const idx of proteinFoods) {
-      if (foods[idx].protein > 0.1) {
-        const adjustment = (proteinError / proteinFoods.length) / foods[idx].protein * learningRate;
-        quantities[idx] = Math.max(0.1, quantities[idx] + adjustment);
-      }
-    }
-    for (const idx of carbFoods) {
-      if (foods[idx].carbs > 0.1) {
-        const adjustment = (carbsError / carbFoods.length) / foods[idx].carbs * learningRate;
-        quantities[idx] = Math.max(0.1, quantities[idx] + adjustment);
-      }
-    }
-    for (const idx of fatFoods) {
-      if (foods[idx].fats > 0.1) {
-        const adjustment = (fatsError / fatFoods.length) / foods[idx].fats * learningRate;
-        quantities[idx] = Math.max(0.1, quantities[idx] + adjustment);
+      if (totalMacro > 0) {
+        const proteinWeight = food.protein / totalMacro;
+        const carbsWeight = food.carbs / totalMacro;
+        const fatsWeight = food.fats / totalMacro;
+
+        const weightedError =
+          proteinError * proteinWeight +
+          carbsError * carbsWeight +
+          fatsError * fatsWeight;
+
+        const adjustment = weightedError / totalMacro * 0.3;
+        quantities[i] = Math.max(0.1, quantities[i] + adjustment);
       }
     }
   }
@@ -233,4 +186,84 @@ function calculateOptimalQuantities(
   }
 
   return quantities;
+}
+
+function solveLeastSquares(A: number[][], b: number[]): number[] {
+  const n = A.length;
+  const m = A[0].length;
+
+  const AT: number[][] = [];
+  for (let j = 0; j < m; j++) {
+    AT[j] = [];
+    for (let i = 0; i < n; i++) {
+      AT[j][i] = A[i][j];
+    }
+  }
+
+  const ATA: number[][] = [];
+  for (let i = 0; i < m; i++) {
+    ATA[i] = [];
+    for (let j = 0; j < m; j++) {
+      let sum = 0;
+      for (let k = 0; k < n; k++) {
+        sum += AT[i][k] * A[k][j];
+      }
+      ATA[i][j] = sum;
+    }
+  }
+
+  const ATb: number[] = [];
+  for (let i = 0; i < m; i++) {
+    let sum = 0;
+    for (let k = 0; k < n; k++) {
+      sum += AT[i][k] * b[k];
+    }
+    ATb[i] = sum;
+  }
+
+  const x = solveLinearSystem(ATA, ATb);
+
+  return x;
+}
+
+function solveLinearSystem(A: number[][], b: number[]): number[] {
+  const n = A.length;
+  const augmented: number[][] = [];
+
+  for (let i = 0; i < n; i++) {
+    augmented[i] = [...A[i], b[i]];
+  }
+
+  for (let i = 0; i < n; i++) {
+    let maxRow = i;
+    for (let k = i + 1; k < n; k++) {
+      if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+        maxRow = k;
+      }
+    }
+    [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+
+    const pivot = augmented[i][i];
+    if (Math.abs(pivot) < 1e-10) continue;
+
+    for (let j = i; j <= n; j++) {
+      augmented[i][j] /= pivot;
+    }
+
+    for (let k = 0; k < n; k++) {
+      if (k !== i) {
+        const factor = augmented[k][i];
+        for (let j = i; j <= n; j++) {
+          augmented[k][j] -= factor * augmented[i][j];
+        }
+      }
+    }
+  }
+
+  const x: number[] = [];
+  for (let i = 0; i < n; i++) {
+    x[i] = Math.max(0.1, augmented[i][n]);
+  }
+
+  return x;
 }
