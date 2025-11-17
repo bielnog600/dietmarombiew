@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Food, FoodCategory, Diet, MacroDistribution } from '../types';
 import { useTranslation } from '../translations';
@@ -27,6 +27,7 @@ export default function AddFoodModal({ isOpen, onClose, mealId, onFoodAdded, ski
   const [targetMacros, setTargetMacros] = useState<MacroDistribution | null>(null);
   const [remainingMacros, setRemainingMacros] = useState<MacroDistribution | null>(null);
   const [existingFoods, setExistingFoods] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   useEffect(() => {
     fetchCategories();
@@ -282,15 +283,31 @@ export default function AddFoodModal({ isOpen, onClose, mealId, onFoodAdded, ski
             <label className="block text-gray-300 text-sm font-bold mb-2">
               {t('food')}
             </label>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+              <input
+                type="text"
+                placeholder={t('searchFood')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-[rgb(23,23,23)] text-gray-300 p-2 pl-10 rounded-lg border border-[#f8c045]/20 focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50"
+              />
+            </div>
             <select
               value={selectedFood?.id || ''}
               onChange={(e) => handleFoodSelect(e.target.value)}
-              className="w-full bg-[rgb(23,23,23)] text-gray-300 p-2 rounded-lg border border-[#f8c045]/20 focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50"
+              className="w-full bg-[rgb(23,23,23)] text-gray-300 p-2 rounded-lg border border-[#f8c045]/20 focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50 max-h-48 overflow-y-auto"
+              size={8}
             >
               <option value="">{t('selectFood')}</option>
               {foods
                 .filter(food => !selectedCategory || food.category_id === selectedCategory)
                 .filter(food => !existingFoods.has(food.id))
+                .filter(food => {
+                  if (!searchTerm) return true;
+                  const foodName = getFoodName(food).toLowerCase();
+                  return foodName.includes(searchTerm.toLowerCase());
+                })
                 .map((food) => (
                   <option key={food.id} value={food.id}>
                     {getFoodName(food)}

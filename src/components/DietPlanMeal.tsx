@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMealTranslation } from '../translations/meals';
 import { useTranslation } from '../translations';
@@ -40,16 +40,48 @@ export default function DietPlanMeal({
     return food.name;
   };
 
+  const [editingPortionId, setEditingPortionId] = useState<string | null>(null);
+  const [tempPortionValue, setTempPortionValue] = useState<string>('');
+
   const handlePortionChange = (mealFoodId: string, currentGrams: number, increment: boolean) => {
     const step = 10; // Adjust portion by 10g increments
     const minPortion = 25; // Minimum 25g portion
     const maxPortion = 300; // Maximum 300g portion
-    
-    const newGrams = increment 
+
+    const newGrams = increment
       ? Math.min(maxPortion, currentGrams + step)
       : Math.max(minPortion, currentGrams - step);
-    
+
     onUpdatePortion(mealFoodId, newGrams);
+  };
+
+  const handlePortionClick = (mealFoodId: string, currentGrams: number) => {
+    setEditingPortionId(mealFoodId);
+    setTempPortionValue(currentGrams.toString());
+  };
+
+  const handlePortionInputChange = (value: string) => {
+    if (value === '' || /^\d+$/.test(value)) {
+      setTempPortionValue(value);
+    }
+  };
+
+  const handlePortionInputBlur = (mealFoodId: string) => {
+    const newGrams = parseInt(tempPortionValue) || 25;
+    const minPortion = 25;
+    const maxPortion = 300;
+    const validGrams = Math.min(maxPortion, Math.max(minPortion, newGrams));
+
+    onUpdatePortion(mealFoodId, validGrams);
+    setEditingPortionId(null);
+  };
+
+  const handlePortionInputKeyDown = (e: React.KeyboardEvent, mealFoodId: string) => {
+    if (e.key === 'Enter') {
+      handlePortionInputBlur(mealFoodId);
+    } else if (e.key === 'Escape') {
+      setEditingPortionId(null);
+    }
   };
 
   return (
@@ -98,9 +130,24 @@ export default function DietPlanMeal({
                       >
                         <ChevronLeft size={16} />
                       </button>
-                      <span className="text-[#f8c045] min-w-[3ch] text-center">
-                        {portion}g
-                      </span>
+                      {editingPortionId === mealFood.id ? (
+                        <input
+                          type="text"
+                          value={tempPortionValue}
+                          onChange={(e) => handlePortionInputChange(e.target.value)}
+                          onBlur={() => handlePortionInputBlur(mealFood.id)}
+                          onKeyDown={(e) => handlePortionInputKeyDown(e, mealFood.id)}
+                          className="w-16 bg-[rgb(23,23,23)] text-[#f8c045] text-center rounded border border-[#f8c045] focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50 px-1 py-0.5"
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          onClick={() => handlePortionClick(mealFood.id, portion)}
+                          className="text-[#f8c045] min-w-[3ch] text-center cursor-pointer hover:bg-[rgb(23,23,23)] px-2 py-0.5 rounded transition"
+                        >
+                          {portion}g
+                        </span>
+                      )}
                       <button
                         onClick={() => handlePortionChange(mealFood.id, portion, true)}
                         className="text-[#f8c045] hover:text-[#e6b041] transition p-1"
