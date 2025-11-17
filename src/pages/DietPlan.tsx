@@ -512,70 +512,86 @@ const DietPlan = () => {
 
         const categorizedFoods = categorizeFoods(validFoods);
 
-        const selectFoodsForMeal = () => {
-          const selected: typeof foodsData = [];
+        const proteinFood = categorizedFoods.protein[0];
+        const carbFood = categorizedFoods.carbs[0];
+        const fatFood = categorizedFoods.fats[0];
 
-          if (mealType === 'low-carb') {
-            selected.push(...categorizedFoods.protein.slice(0, 1));
-            selected.push(...categorizedFoods.carbs.slice(0, 1));
-            selected.push(...categorizedFoods.fats.slice(0, 1));
-          } else if (mealType === 'pre-workout') {
-            selected.push(...categorizedFoods.protein.slice(0, 1));
-            selected.push(...categorizedFoods.carbs.slice(0, 2));
-          } else if (mealType === 'post-workout') {
-            selected.push(...categorizedFoods.protein.slice(0, 2));
-            selected.push(...categorizedFoods.carbs.slice(0, 1));
-          } else {
-            selected.push(...categorizedFoods.protein.slice(0, 1));
-            selected.push(...categorizedFoods.carbs.slice(0, 1));
-            selected.push(...categorizedFoods.fats.slice(0, 1));
-          }
+        if (!proteinFood || !carbFood || !fatFood) {
+          console.log(`Missing food types for meal "${meal.name}": protein=${!!proteinFood}, carbs=${!!carbFood}, fats=${!!fatFood}`);
+          continue;
+        }
 
-          if (selected.length === 0) {
-            console.log(`No categorized foods found, using first ${Math.min(3, validFoods.length)} valid foods`);
-            selected.push(...validFoods.slice(0, 3));
-          }
+        console.log(`Selected foods for "${meal.name}":`, {
+          protein: proteinFood.name,
+          carbs: carbFood.name,
+          fats: fatFood.name
+        });
 
-          return selected;
+        const totalMacros = {
+          protein: mealTargetMacros.protein,
+          carbs: mealTargetMacros.carbs,
+          fats: mealTargetMacros.fats
         };
 
-        const selectedFoods = selectFoodsForMeal();
-        console.log(`Selected ${selectedFoods.length} foods for ${mealType} meal:`, selectedFoods.map(f => f.name));
+        const A = [
+          [proteinFood.protein, carbFood.protein, fatFood.protein],
+          [proteinFood.carbs, carbFood.carbs, fatFood.carbs],
+          [proteinFood.fats, carbFood.fats, fatFood.fats]
+        ];
 
-        for (const food of selectedFoods) {
-          if (currentMacros.calories >= caloriesForMeal * 0.95) break;
+        const b = [totalMacros.protein, totalMacros.carbs, totalMacros.fats];
 
-          const remainingProtein = Math.max(0, mealTargetMacros.protein - currentMacros.protein);
-          const remainingCarbs = Math.max(0, mealTargetMacros.carbs - currentMacros.carbs);
-          const remainingFats = Math.max(0, mealTargetMacros.fats - currentMacros.fats);
+        const det = A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+                    A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+                    A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
 
-          let portionSize = 100;
+        if (Math.abs(det) < 0.001) {
+          console.log('System is singular, using proportional distribution');
+          const proteinQuantity = Math.max(0.5, totalMacros.protein / (proteinFood.protein || 1));
+          const carbQuantity = Math.max(0.5, totalMacros.carbs / (carbFood.carbs || 1));
+          const fatQuantity = Math.max(0.5, totalMacros.fats / (fatFood.fats || 1));
 
-          if (food.protein > 0 && remainingProtein > 0) {
-            portionSize = Math.min(portionSize, (remainingProtein / food.protein) * 100);
-          }
-          if (food.carbs > 0 && remainingCarbs > 0) {
-            portionSize = Math.min(portionSize, (remainingCarbs / food.carbs) * 100);
-          }
-          if (food.fats > 0 && remainingFats > 0) {
-            portionSize = Math.min(portionSize, (remainingFats / food.fats) * 100);
-          }
+          mealFoods.push(
+            { meal_id: meal.id, food_id: proteinFood.id, quantity: proteinQuantity },
+            { meal_id: meal.id, food_id: carbFood.id, quantity: carbQuantity },
+            { meal_id: meal.id, food_id: fatFood.id, quantity: fatQuantity }
+          );
 
-          portionSize = Math.min(300, Math.max(25, portionSize));
-          const quantity = portionSize / food.portion_size;
+          usedFoodIds.add(proteinFood.id);
+          usedFoodIds.add(carbFood.id);
+          usedFoodIds.add(fatFood.id);
+        } else {
+          const detX1 = b[0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+                       A[0][1] * (b[1] * A[2][2] - A[1][2] * b[2]) +
+                       A[0][2] * (b[1] * A[2][1] - A[1][1] * b[2]);
 
-          currentMacros.protein += food.protein * quantity;
-          currentMacros.carbs += food.carbs * quantity;
-          currentMacros.fats += food.fats * quantity;
-          currentMacros.calories += food.calories * quantity;
+          const detX2 = A[0][0] * (b[1] * A[2][2] - A[1][2] * b[2]) -
+                       b[0] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+                       A[0][2] * (A[1][0] * b[2] - b[1] * A[2][0]);
 
-          mealFoods.push({
-            meal_id: meal.id,
-            food_id: food.id,
-            quantity
-          });
+          const detX3 = A[0][0] * (A[1][1] * b[2] - b[1] * A[2][1]) -
+                       A[0][1] * (A[1][0] * b[2] - b[1] * A[2][0]) +
+                       b[0] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
 
-          usedFoodIds.add(food.id);
+          let proteinQuantity = Math.max(0.5, detX1 / det);
+          let carbQuantity = Math.max(0.5, detX2 / det);
+          let fatQuantity = Math.max(0.5, detX3 / det);
+
+          proteinQuantity = Math.min(5, proteinQuantity);
+          carbQuantity = Math.min(5, carbQuantity);
+          fatQuantity = Math.min(5, fatQuantity);
+
+          console.log(`Calculated quantities: protein=${proteinQuantity.toFixed(2)}, carbs=${carbQuantity.toFixed(2)}, fats=${fatQuantity.toFixed(2)}`);
+
+          mealFoods.push(
+            { meal_id: meal.id, food_id: proteinFood.id, quantity: proteinQuantity },
+            { meal_id: meal.id, food_id: carbFood.id, quantity: carbQuantity },
+            { meal_id: meal.id, food_id: fatFood.id, quantity: fatQuantity }
+          );
+
+          usedFoodIds.add(proteinFood.id);
+          usedFoodIds.add(carbFood.id);
+          usedFoodIds.add(fatFood.id);
         }
 
         console.log('Meal foods to insert:', mealFoods.length);
