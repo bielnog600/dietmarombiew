@@ -117,20 +117,26 @@ export function FoodSubstitutionModal({
 
       scored.sort((a, b) => a.totalError - b.totalError);
 
+      const withPositiveSimilarity = scored.filter(f => {
+        const similarity = 100 - (f.totalError * 100);
+        return similarity > 0;
+      });
+
       console.log('Top 5 foods by similarity:');
-      scored.slice(0, 5).forEach((food: any, i) => {
+      withPositiveSimilarity.slice(0, 5).forEach((food: any, i) => {
+        const similarity = 100 - (food.totalError * 100);
         console.log(`${i + 1}. ${food.name}:`, {
           quantity: food.quantity.toFixed(2),
+          similarity: similarity.toFixed(1) + '%',
           proteinMatch: (food.proteinMatch * 100).toFixed(1) + '%',
           carbsMatch: (food.carbsMatch * 100).toFixed(1) + '%',
-          fatsMatch: (food.fatsMatch * 100).toFixed(1) + '%',
-          totalError: (food.totalError * 100).toFixed(1) + '%'
+          fatsMatch: (food.fatsMatch * 100).toFixed(1) + '%'
         });
       });
 
-      const filtered = scored.slice(0, 20);
+      const filtered = withPositiveSimilarity.slice(0, 20);
 
-      console.log('Showing top 20 similar foods');
+      console.log('Showing', filtered.length, 'similar foods with positive similarity');
 
       setSimilarFoods(filtered);
     } catch (error) {
