@@ -93,28 +93,34 @@ export function FoodSubstitutionModal({
         const fatsMatch = Math.abs(food.fats * bestQuantity - currentFats) / (currentFats || 1);
 
         const totalError = proteinMatch + carbsMatch + fatsMatch;
-        const isGoodMatch = totalError <= 1.5;
 
         return {
           ...food,
           score: bestScore,
           quantity: bestQuantity,
-          isGoodMatch,
           proteinMatch,
           carbsMatch,
-          fatsMatch
+          fatsMatch,
+          totalError
         };
       });
 
-      const filtered = scored
-        .filter(f => f.isGoodMatch)
-        .sort((a, b) => a.score - b.score)
-        .slice(0, 20);
+      scored.sort((a, b) => a.totalError - b.totalError);
 
-      console.log('Similar foods found:', filtered.length);
-      if (filtered.length > 0) {
-        console.log('Best match:', filtered[0]);
-      }
+      console.log('Top 5 foods by similarity:');
+      scored.slice(0, 5).forEach((food: any, i) => {
+        console.log(`${i + 1}. ${food.name}:`, {
+          quantity: food.quantity.toFixed(2),
+          proteinMatch: (food.proteinMatch * 100).toFixed(1) + '%',
+          carbsMatch: (food.carbsMatch * 100).toFixed(1) + '%',
+          fatsMatch: (food.fatsMatch * 100).toFixed(1) + '%',
+          totalError: (food.totalError * 100).toFixed(1) + '%'
+        });
+      });
+
+      const filtered = scored.slice(0, 20);
+
+      console.log('Showing top 20 similar foods');
 
       setSimilarFoods(filtered);
     } catch (error) {
@@ -249,11 +255,14 @@ export function FoodSubstitutionModal({
                     }`}
                   >
                     <div className="flex items-center justify-between mb-3">
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-semibold text-white">{food.name}</h4>
-                        <p className="text-sm text-gray-400">
-                          {language === 'pt' ? 'Quantidade' : 'Quantity'}: {food.quantity.toFixed(2)}
-                        </p>
+                        <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
+                          <span>{language === 'pt' ? 'Quantidade' : 'Quantity'}: {(food as any).quantity.toFixed(2)}</span>
+                          <span className="text-[#f8c045]">
+                            {language === 'pt' ? 'Similaridade' : 'Similarity'}: {(100 - (food as any).totalError * 100).toFixed(0)}%
+                          </span>
+                        </div>
                       </div>
                       <ArrowRight className="w-5 h-5 text-[#f8c045]" />
                     </div>
