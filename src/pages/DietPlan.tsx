@@ -432,12 +432,20 @@ const DietPlan = () => {
           const categoryName = food.food_categories?.name?.toLowerCase() || '';
           const mealLower = mealName.toLowerCase();
 
+          const isFlexibleCategory = categoryName.includes('fruta') ||
+                                     categoryName.includes('gordura') ||
+                                     categoryName.includes('vegeta') ||
+                                     categoryName.includes('salada') ||
+                                     categoryName.includes('azeite') ||
+                                     categoryName.includes('oleaginosa');
+
           console.log(`Checking food "${food.name}" (category: "${food.food_categories?.name}") for meal "${mealName}"`);
 
           if (mealLower.includes('café') || mealLower.includes('breakfast') || mealIndex === 0) {
             const valid = categoryName.includes('café') ||
                    categoryName.includes('breakfast') ||
-                   categoryName.includes('manhã');
+                   categoryName.includes('manhã') ||
+                   (isFlexibleCategory && !categoryName.includes('jantar') && !categoryName.includes('almoço'));
             console.log(`  -> Café da manhã check: ${valid}`);
             return valid;
           }
@@ -445,7 +453,8 @@ const DietPlan = () => {
           if (mealLower.includes('lanche') || mealLower.includes('snack')) {
             const valid = categoryName.includes('lanche') ||
                    categoryName.includes('snack') ||
-                   categoryName.includes('meio');
+                   categoryName.includes('meio') ||
+                   isFlexibleCategory;
             console.log(`  -> Lanche check: ${valid}`);
             return valid;
           }
@@ -453,7 +462,9 @@ const DietPlan = () => {
           if (mealLower.includes('almoço') || mealLower.includes('lunch')) {
             const valid = categoryName.includes('almoço') ||
                    categoryName.includes('lunch') ||
-                   categoryName.includes('proteína');
+                   categoryName.includes('proteína') ||
+                   categoryName.includes('carboidrato') ||
+                   isFlexibleCategory;
             console.log(`  -> Almoço check: ${valid}`);
             return valid;
           }
@@ -462,7 +473,8 @@ const DietPlan = () => {
             const valid = categoryName.includes('jantar') ||
                    categoryName.includes('dinner') ||
                    categoryName.includes('ceia') ||
-                   categoryName.includes('proteína');
+                   categoryName.includes('proteína') ||
+                   (isFlexibleCategory && !categoryName.includes('fruta'));
             console.log(`  -> Jantar check: ${valid}`);
             return valid;
           }
@@ -471,7 +483,8 @@ const DietPlan = () => {
             const valid = categoryName.includes('treino') ||
                    categoryName.includes('workout') ||
                    categoryName.includes('carboidrato') ||
-                   categoryName.includes('proteína');
+                   categoryName.includes('proteína') ||
+                   categoryName.includes('fruta');
             console.log(`  -> Pré-treino check: ${valid}`);
             return valid;
           }
@@ -480,7 +493,8 @@ const DietPlan = () => {
             const valid = categoryName.includes('treino') ||
                    categoryName.includes('workout') ||
                    categoryName.includes('carboidrato') ||
-                   categoryName.includes('proteína');
+                   categoryName.includes('proteína') ||
+                   categoryName.includes('fruta');
             console.log(`  -> Pós-treino check: ${valid}`);
             return valid;
           }
