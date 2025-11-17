@@ -3,6 +3,7 @@ import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMealTranslation } from '../translations/meals';
 import { useTranslation } from '../translations';
 import { useLanguageStore } from '../store/languageStore';
+import { FoodSubstitutionModal } from './FoodSubstitutionModal';
 import type { Meal } from '../types';
 
 interface DietPlanMealProps {
@@ -11,6 +12,7 @@ interface DietPlanMealProps {
   onAddFood: () => void;
   onDeleteFood: (mealFoodId: string) => void;
   onUpdatePortion: (mealFoodId: string, newGrams: number) => void;
+  onSubstituteFood: () => void;
   deleteLoading: boolean;
   mealMacros: {
     calories: number;
@@ -26,6 +28,7 @@ export default function DietPlanMeal({
   onAddFood,
   onDeleteFood,
   onUpdatePortion,
+  onSubstituteFood,
   deleteLoading,
   mealMacros
 }: DietPlanMealProps) {
@@ -42,6 +45,8 @@ export default function DietPlanMeal({
 
   const [editingPortionId, setEditingPortionId] = useState<string | null>(null);
   const [tempPortionValue, setTempPortionValue] = useState<string>('');
+  const [substitutionModalOpen, setSubstitutionModalOpen] = useState(false);
+  const [selectedFoodForSubstitution, setSelectedFoodForSubstitution] = useState<any>(null);
 
   const handlePortionChange = (mealFoodId: string, currentGrams: number, increment: boolean) => {
     const step = 10; // Adjust portion by 10g increments
@@ -121,7 +126,24 @@ export default function DietPlanMeal({
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-white font-medium">{getFoodName(mealFood.food)}</h4>
+                    <h4
+                      className="text-white font-medium cursor-pointer hover:text-[#f8c045] transition"
+                      onClick={() => {
+                        setSelectedFoodForSubstitution({
+                          id: mealFood.food.id,
+                          name: getFoodName(mealFood.food),
+                          protein: mealFood.food.protein,
+                          carbs: mealFood.food.carbs,
+                          fats: mealFood.food.fats,
+                          calories: mealFood.food.calories,
+                          quantity: mealFood.quantity
+                        });
+                        setSubstitutionModalOpen(true);
+                      }}
+                      title={language === 'pt' ? 'Clique para substituir' : 'Click to substitute'}
+                    >
+                      {getFoodName(mealFood.food)}
+                    </h4>
                     <div className="flex items-center space-x-2 ml-4">
                       <button
                         onClick={() => handlePortionChange(mealFood.id, portion, false)}
@@ -192,6 +214,23 @@ export default function DietPlanMeal({
           </div>
         </div>
       </div>
+
+      {selectedFoodForSubstitution && (
+        <FoodSubstitutionModal
+          isOpen={substitutionModalOpen}
+          onClose={() => {
+            setSubstitutionModalOpen(false);
+            setSelectedFoodForSubstitution(null);
+          }}
+          currentFood={selectedFoodForSubstitution}
+          mealId={meal.id}
+          onSubstitute={() => {
+            onSubstituteFood();
+            setSubstitutionModalOpen(false);
+            setSelectedFoodForSubstitution(null);
+          }}
+        />
+      )}
     </div>
   );
 }

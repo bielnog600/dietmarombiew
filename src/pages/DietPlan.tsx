@@ -736,6 +736,7 @@ const DietPlan = () => {
                     onAddFood={() => handleAddFood(meal.id)}
                     onDeleteFood={handleDeleteFood}
                     onUpdatePortion={handleUpdatePortion}
+                    onSubstituteFood={fetchLatestDiet}
                     deleteLoading={deleteLoading}
                     mealMacros={mealMacros}
                   />
