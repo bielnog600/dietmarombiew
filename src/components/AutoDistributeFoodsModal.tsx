@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Search } from 'lucide-react';
+import { X, Sparkles, Search, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Food, FoodCategory } from '../types';
+import type { Food, FoodCategory, Meal } from '../types';
 import { useTranslation } from '../translations';
 import { useLanguageStore } from '../store/languageStore';
 
@@ -9,30 +9,43 @@ interface AutoDistributeFoodsModalProps {
   isOpen: boolean;
   onClose: () => void;
   dietId: string;
-  onDistribute: (selectedFoodIds: string[]) => void;
+  meals: Meal[];
+  onDistribute: (mealSelections: { mealId: string; foodIds: string[] }[]) => void;
 }
 
 export default function AutoDistributeFoodsModal({
   isOpen,
   onClose,
   dietId,
+  meals,
   onDistribute
 }: AutoDistributeFoodsModalProps) {
   const { t } = useTranslation();
   const language = useLanguageStore(state => state.language);
+  const [currentStep, setCurrentStep] = useState(0);
   const [categories, setCategories] = useState<FoodCategory[]>([]);
   const [foods, setFoods] = useState<Food[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedFoodIds, setSelectedFoodIds] = useState<Set<string>>(new Set());
+  const [mealSelections, setMealSelections] = useState<Map<string, Set<string>>>(new Map());
   const [loading, setLoading] = useState(false);
+
+  const currentMeal = meals[currentStep];
+  const isLastStep = currentStep === meals.length - 1;
 
   useEffect(() => {
     if (isOpen) {
       fetchCategories();
       fetchFoods();
+      setCurrentStep(0);
+      setMealSelections(new Map());
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setSelectedCategory('');
+    setSearchTerm('');
+  }, [currentStep]);
 
   const getFoodName = (food: { name: string; name_en?: string | null }) => {
     if (language === 'en' && food.name_en) {
@@ -77,28 +90,51 @@ export default function AutoDistributeFoodsModal({
   };
 
   const toggleFoodSelection = (foodId: string) => {
-    setSelectedFoodIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(foodId)) {
-        newSet.delete(foodId);
+    if (!currentMeal) return;
+
+    setMealSelections(prev => {
+      const newMap = new Map(prev);
+      const currentSet = new Set(newMap.get(currentMeal.id) || []);
+
+      if (currentSet.has(foodId)) {
+        currentSet.delete(foodId);
       } else {
-        newSet.add(foodId);
+        currentSet.add(foodId);
       }
-      return newSet;
+
+      newMap.set(currentMeal.id, currentSet);
+      return newMap;
     });
   };
 
+  const handleNext = () => {
+    if (currentStep < meals.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   const handleDistribute = async () => {
-    if (selectedFoodIds.size === 0) {
-      console.log('No foods selected');
+    const selections = Array.from(mealSelections.entries()).map(([mealId, foodIds]) => ({
+      mealId,
+      foodIds: Array.from(foodIds)
+    }));
+
+    const totalSelectedFoods = selections.reduce((sum, sel) => sum + sel.foodIds.length, 0);
+
+    if (totalSelectedFoods === 0) {
+      alert(language === 'en' ? 'Please select at least one food' : 'Selecione pelo menos um alimento');
       return;
     }
 
-    console.log('Distributing foods:', Array.from(selectedFoodIds));
     setLoading(true);
     try {
-      await onDistribute(Array.from(selectedFoodIds));
-      console.log('Distribution completed, closing modal');
+      await onDistribute(selections);
       onClose();
     } catch (err) {
       console.error('Error distributing foods:', err);
@@ -108,7 +144,9 @@ export default function AutoDistributeFoodsModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !currentMeal) return null;
+
+  const currentSelectedFoodIds = mealSelections.get(currentMeal.id) || new Set();
 
   const filteredFoods = foods
     .filter(food => !selectedCategory || food.category_id === selectedCategory)
@@ -145,11 +183,50 @@ export default function AutoDistributeFoodsModal({
           </button>
         </div>
 
-        <p className="text-gray-400 mb-4 text-sm">
-          {language === 'en'
-            ? 'Select the foods you like and we will distribute them across your meals to match your calorie and macro targets.'
-            : 'Selecione os alimentos que você gosta e vamos distribuí-los entre suas refeições para bater suas calorias e macros.'}
-        </p>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            {meals.map((meal, index) => {
+              const isCompleted = index < currentStep;
+              const isCurrent = index === currentStep;
+              const hasSelection = (mealSelections.get(meal.id)?.size || 0) > 0;
+
+              return (
+                <React.Fragment key={meal.id}>
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition ${
+                        isCompleted
+                          ? 'bg-green-600 text-white'
+                          : isCurrent
+                          ? 'bg-[#f8c045] text-[rgb(23,23,23)]'
+                          : hasSelection
+                          ? 'bg-[#f8c045]/30 text-[#f8c045]'
+                          : 'bg-[rgb(23,23,23)] text-gray-500'
+                      }`}
+                    >
+                      {isCompleted ? <Check size={20} /> : index + 1}
+                    </div>
+                    <span className={`text-xs mt-1 ${isCurrent ? 'text-[#f8c045]' : 'text-gray-500'}`}>
+                      {meal.name}
+                    </span>
+                  </div>
+                  {index < meals.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-2 ${isCompleted ? 'bg-green-600' : 'bg-[rgb(23,23,23)]'}`} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          <div className="bg-[rgb(23,23,23)] p-4 rounded-lg border border-[#f8c045]/20">
+            <h3 className="text-white font-semibold mb-2">{currentMeal.name}</h3>
+            <p className="text-sm text-gray-400">
+              {language === 'en'
+                ? `Select foods for this meal (${currentSelectedFoodIds.size} selected)`
+                : `Selecione os alimentos para esta refeição (${currentSelectedFoodIds.size} selecionados)`}
+            </p>
+          </div>
+        </div>
 
         <div className="space-y-4 mb-6">
           <div>
@@ -189,18 +266,24 @@ export default function AutoDistributeFoodsModal({
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-gray-300 text-sm font-bold">
-                {language === 'en' ? 'Select Foods' : 'Selecionar Alimentos'} ({selectedFoodIds.size})
+                {language === 'en' ? 'Select Foods' : 'Selecionar Alimentos'}
               </label>
-              {selectedFoodIds.size > 0 && (
+              {currentSelectedFoodIds.size > 0 && (
                 <button
-                  onClick={() => setSelectedFoodIds(new Set())}
+                  onClick={() => {
+                    setMealSelections(prev => {
+                      const newMap = new Map(prev);
+                      newMap.set(currentMeal.id, new Set());
+                      return newMap;
+                    });
+                  }}
                   className="text-sm text-[#f8c045] hover:text-[#e6b041]"
                 >
-                  {language === 'en' ? 'Clear All' : 'Limpar Tudo'}
+                  {language === 'en' ? 'Clear' : 'Limpar'}
                 </button>
               )}
             </div>
-            <div className="bg-[rgb(23,23,23)] rounded-lg border border-[#f8c045]/20 max-h-96 overflow-y-auto">
+            <div className="bg-[rgb(23,23,23)] rounded-lg border border-[#f8c045]/20 max-h-80 overflow-y-auto">
               {filteredFoods.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">
                   {language === 'en' ? 'No foods found' : 'Nenhum alimento encontrado'}
@@ -214,7 +297,7 @@ export default function AutoDistributeFoodsModal({
                     >
                       <input
                         type="checkbox"
-                        checked={selectedFoodIds.has(food.id)}
+                        checked={currentSelectedFoodIds.has(food.id)}
                         onChange={() => toggleFoodSelection(food.id)}
                         className="w-5 h-5 rounded border-[#f8c045]/20 bg-[rgb(28,28,28)] text-[#f8c045] focus:ring-2 focus:ring-[#f8c045]/50"
                       />
@@ -233,26 +316,38 @@ export default function AutoDistributeFoodsModal({
         </div>
 
         <div className="flex space-x-4">
-          <button
-            onClick={onClose}
-            className="flex-1 bg-[rgb(23,23,23)] text-[#f8c045] py-2 px-4 rounded-lg hover:bg-[rgb(33,33,33)] transition font-semibold border border-[#f8c045]"
-          >
-            {t('cancel')}
-          </button>
-          <button
-            onClick={handleDistribute}
-            disabled={loading || selectedFoodIds.size === 0}
-            className={`flex-1 bg-[#f8c045] text-[rgb(23,23,23)] py-2 px-4 rounded-lg transition font-semibold flex items-center justify-center ${
-              loading || selectedFoodIds.size === 0
-                ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-[#e6b041]'
-            }`}
-          >
-            <Sparkles size={18} className="mr-2" />
-            {loading
-              ? (language === 'en' ? 'Distributing...' : 'Distribuindo...')
-              : (language === 'en' ? 'Auto Distribute' : 'Distribuir Automaticamente')}
-          </button>
+          {currentStep > 0 && (
+            <button
+              onClick={handleBack}
+              className="flex-1 bg-[rgb(23,23,23)] text-[#f8c045] py-2 px-4 rounded-lg hover:bg-[rgb(33,33,33)] transition font-semibold border border-[#f8c045] flex items-center justify-center"
+            >
+              <ChevronLeft size={18} className="mr-2" />
+              {language === 'en' ? 'Back' : 'Voltar'}
+            </button>
+          )}
+
+          {!isLastStep ? (
+            <button
+              onClick={handleNext}
+              className="flex-1 bg-[#f8c045] text-[rgb(23,23,23)] py-2 px-4 rounded-lg hover:bg-[#e6b041] transition font-semibold flex items-center justify-center"
+            >
+              {language === 'en' ? 'Next' : 'Próxima'}
+              <ChevronRight size={18} className="ml-2" />
+            </button>
+          ) : (
+            <button
+              onClick={handleDistribute}
+              disabled={loading}
+              className={`flex-1 bg-[#f8c045] text-[rgb(23,23,23)] py-2 px-4 rounded-lg transition font-semibold flex items-center justify-center ${
+                loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#e6b041]'
+              }`}
+            >
+              <Sparkles size={18} className="mr-2" />
+              {loading
+                ? (language === 'en' ? 'Distributing...' : 'Distribuindo...')
+                : (language === 'en' ? 'Distribute' : 'Distribuir')}
+            </button>
+          )}
         </div>
       </div>
     </div>

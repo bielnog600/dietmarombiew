@@ -308,321 +308,23 @@ const DietPlan = () => {
     }
   };
 
-  const handleAutoDistribute = async (selectedFoodIds: string[]) => {
-    if (!diet || selectedFoodIds.length === 0) {
-      console.log('No diet or no foods selected');
+  const handleAutoDistribute = async (mealSelections: { mealId: string; foodIds: string[] }[]) => {
+    if (!diet) {
+      console.log('No diet');
       return;
     }
 
-    console.log('Starting auto-distribute with', selectedFoodIds.length, 'foods');
     setLoading(true);
     setError('');
 
     try {
-      const { data: foodsData, error: foodsError } = await supabase
-        .from('foods')
-        .select('*, food_categories(*)')
-        .in('id', selectedFoodIds);
-
-      if (foodsError) throw foodsError;
-
-      console.log('Fetched foods:', foodsData?.length);
-      console.log('Foods with categories:', foodsData?.map(f => ({ name: f.name, category: f.food_categories?.name })));
-
       const targetProtein = diet.macros?.protein || Math.round((diet.calories * 0.3) / 4);
       const targetCarbs = diet.macros?.carbs || Math.round((diet.calories * 0.45) / 4);
       const targetFats = diet.macros?.fats || Math.round((diet.calories * 0.25) / 9);
 
-      console.log('Target macros:', { targetProtein, targetCarbs, targetFats });
-
-      let mealsForDay = diet.meals || [];
-
-      if (mealsForDay.some(m => m.day_of_week !== undefined && m.day_of_week !== null)) {
-        mealsForDay = mealsForDay.filter(m => m.day_of_week === selectedDayOfWeek);
-      }
-
-      const numMeals = mealsForDay.length;
-
-      console.log('Meals for day', selectedDayOfWeek, ':', numMeals);
-      console.log('Available meals:', mealsForDay.map(m => ({ id: m.id, name: m.name, day: m.day_of_week })));
-
-      if (numMeals === 0) {
-        setError('Nenhuma refeição encontrada. Crie uma dieta primeiro ou selecione outro dia.');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Deleting existing meal_foods for meals:', mealsForDay.map(m => m.id));
-      const { error: deleteError } = await supabase
-        .from('meal_foods')
-        .delete()
-        .in('meal_id', mealsForDay.map(m => m.id));
-
-      if (deleteError) {
-        console.error('Delete error:', deleteError);
-        throw deleteError;
-      }
-
-      console.log('Deleted existing foods');
-
-      const getMealType = (mealName: string, index: number): 'low-carb' | 'pre-workout' | 'post-workout' | 'normal' => {
-        const nameLower = mealName.toLowerCase();
-        if (nameLower.includes('café') || nameLower.includes('breakfast') || index === 0) return 'low-carb';
-        if (nameLower.includes('jantar') || nameLower.includes('dinner') || nameLower.includes('ceia') || index === mealsForDay.length - 1) return 'low-carb';
-        if (nameLower.includes('pré') || nameLower.includes('pre') || nameLower.includes('antes')) return 'pre-workout';
-        if (nameLower.includes('pós') || nameLower.includes('post') || nameLower.includes('depois')) return 'post-workout';
-        return 'normal';
-      };
-
-      const getMealMacros = (type: 'low-carb' | 'pre-workout' | 'post-workout' | 'normal', totalCals: number) => {
-        switch (type) {
-          case 'low-carb':
-            return {
-              protein: Math.round((totalCals * 0.35) / 4),
-              carbs: Math.round((totalCals * 0.15) / 4),
-              fats: Math.round((totalCals * 0.50) / 9)
-            };
-          case 'pre-workout':
-            return {
-              protein: Math.round((totalCals * 0.30) / 4),
-              carbs: Math.round((totalCals * 0.55) / 4),
-              fats: Math.round((totalCals * 0.15) / 9)
-            };
-          case 'post-workout':
-            return {
-              protein: Math.round((totalCals * 0.40) / 4),
-              carbs: Math.round((totalCals * 0.50) / 4),
-              fats: Math.round((totalCals * 0.10) / 9)
-            };
-          case 'normal':
-            return {
-              protein: Math.round((totalCals * 0.30) / 4),
-              carbs: Math.round((totalCals * 0.40) / 4),
-              fats: Math.round((totalCals * 0.30) / 9)
-            };
-        }
-      };
-
-      console.log('Distributing with meal-specific macro targets');
-
-      const usedFoodIds = new Set<string>();
-
-      for (let i = 0; i < mealsForDay.length; i++) {
-        const meal = mealsForDay[i];
-        const mealType = getMealType(meal.name, i);
-        const caloriesForMeal = Math.round(diet.calories / numMeals);
-        const mealTargetMacros = getMealMacros(mealType, caloriesForMeal);
-
-        console.log(`Processing meal ${i + 1}:`, meal.name, 'Type:', mealType, 'Macros:', mealTargetMacros);
-
-        const currentMacros = { protein: 0, carbs: 0, fats: 0, calories: 0 };
-        const mealFoods: Array<{ meal_id: string; food_id: string; quantity: number }> = [];
-
-        const categorizeFoods = (foods: typeof foodsData) => {
-          const protein = foods.filter(f => f.protein >= 10 && f.protein >= f.carbs && f.protein >= f.fats);
-          const carbs = foods.filter(f => f.carbs >= 10 && f.carbs >= f.protein && f.carbs >= f.fats);
-          const fats = foods.filter(f => f.fats >= 3 && f.fats >= f.protein && f.fats >= f.carbs);
-
-          if (protein.length === 0) {
-            protein.push(...foods.filter(f => f.protein >= 5).sort((a, b) => b.protein - a.protein).slice(0, 1));
-          }
-          if (carbs.length === 0) {
-            carbs.push(...foods.filter(f => f.carbs >= 5).sort((a, b) => b.carbs - a.carbs).slice(0, 1));
-          }
-          if (fats.length === 0) {
-            fats.push(...foods.filter(f => f.fats >= 1).sort((a, b) => b.fats - a.fats).slice(0, 1));
-          }
-
-          console.log('Categorized foods:', {
-            protein: protein.map(f => f.name),
-            carbs: carbs.map(f => f.name),
-            fats: fats.map(f => f.name)
-          });
-
-          return { protein, carbs, fats };
-        };
-
-        const isFoodValidForMeal = (food: typeof foodsData[0], mealName: string, mealIndex: number): boolean => {
-          const categoryName = food.food_categories?.name?.toLowerCase() || '';
-          const mealLower = mealName.toLowerCase();
-
-          const isProtein = categoryName.includes('proteína');
-          const isCarb = categoryName.includes('carboidrato');
-          const isFat = categoryName.includes('gordura') || categoryName.includes('azeite') || categoryName.includes('oleaginosa');
-          const isFruit = categoryName.includes('fruta');
-          const isVeggie = categoryName.includes('vegeta') || categoryName.includes('salada') || categoryName.includes('legume');
-
-          console.log(`Checking food "${food.name}" (category: "${food.food_categories?.name}") for meal "${mealName}"`);
-
-          if (mealLower.includes('café') || mealLower.includes('breakfast') || mealIndex === 0) {
-            const valid = isProtein || isCarb || isFat || isFruit ||
-                   categoryName.includes('café') ||
-                   categoryName.includes('breakfast') ||
-                   categoryName.includes('manhã');
-            console.log(`  -> Café da manhã check: ${valid}`);
-            return valid;
-          }
-
-          if (mealLower.includes('lanche') || mealLower.includes('snack')) {
-            const valid = isProtein || isCarb || isFat || isFruit ||
-                   categoryName.includes('lanche') ||
-                   categoryName.includes('snack') ||
-                   categoryName.includes('café');
-            console.log(`  -> Lanche check: ${valid}`);
-            return valid;
-          }
-
-          if (mealLower.includes('almoço') || mealLower.includes('lunch')) {
-            const valid = isProtein || isCarb || isFat || isVeggie ||
-                   categoryName.includes('almoço') ||
-                   categoryName.includes('lunch');
-            console.log(`  -> Almoço check: ${valid}`);
-            return valid;
-          }
-
-          if (mealLower.includes('jantar') || mealLower.includes('dinner') || mealLower.includes('ceia')) {
-            const valid = isProtein || isCarb || isFat || isVeggie ||
-                   categoryName.includes('jantar') ||
-                   categoryName.includes('dinner') ||
-                   categoryName.includes('ceia');
-            console.log(`  -> Jantar check: ${valid}`);
-            return valid;
-          }
-
-          if (mealLower.includes('pré') || mealLower.includes('pre') || mealLower.includes('antes')) {
-            const valid = categoryName.includes('treino') ||
-                   categoryName.includes('workout') ||
-                   categoryName.includes('carboidrato') ||
-                   categoryName.includes('proteína') ||
-                   categoryName.includes('fruta');
-            console.log(`  -> Pré-treino check: ${valid}`);
-            return valid;
-          }
-
-          if (mealLower.includes('pós') || mealLower.includes('post') || mealLower.includes('depois')) {
-            const valid = categoryName.includes('treino') ||
-                   categoryName.includes('workout') ||
-                   categoryName.includes('carboidrato') ||
-                   categoryName.includes('proteína') ||
-                   categoryName.includes('fruta');
-            console.log(`  -> Pós-treino check: ${valid}`);
-            return valid;
-          }
-
-          console.log(`  -> Default: true (no specific meal requirement)`);
-          return true;
-        };
-
-        const validFoods = foodsData.filter(f => isFoodValidForMeal(f, meal.name, i) && !usedFoodIds.has(f.id));
-        console.log(`Filtered foods for "${meal.name}": ${validFoods.length} valid out of ${foodsData.length} total (${usedFoodIds.size} already used)`);
-
-        const categorizedFoods = categorizeFoods(validFoods);
-
-        let proteinFood = categorizedFoods.protein[0];
-        let carbFood = categorizedFoods.carbs.find(f => f.id !== proteinFood?.id) || categorizedFoods.carbs[0];
-        let fatFood = categorizedFoods.fats.find(f => f.id !== proteinFood?.id && f.id !== carbFood?.id) || categorizedFoods.fats[0];
-
-        if (!proteinFood || !carbFood || !fatFood) {
-          console.log(`Missing food types for meal "${meal.name}": protein=${!!proteinFood}, carbs=${!!carbFood}, fats=${!!fatFood}`);
-          continue;
-        }
-
-        if (proteinFood.id === carbFood.id || proteinFood.id === fatFood.id || carbFood.id === fatFood.id) {
-          console.log(`Duplicate foods detected for meal "${meal.name}": protein=${proteinFood.name}, carbs=${carbFood.name}, fats=${fatFood.name}`);
-          continue;
-        }
-
-        console.log(`Selected foods for "${meal.name}":`, {
-          protein: proteinFood.name,
-          carbs: carbFood.name,
-          fats: fatFood.name
-        });
-
-        const totalMacros = {
-          protein: mealTargetMacros.protein,
-          carbs: mealTargetMacros.carbs,
-          fats: mealTargetMacros.fats
-        };
-
-        const A = [
-          [proteinFood.protein, carbFood.protein, fatFood.protein],
-          [proteinFood.carbs, carbFood.carbs, fatFood.carbs],
-          [proteinFood.fats, carbFood.fats, fatFood.fats]
-        ];
-
-        const b = [totalMacros.protein, totalMacros.carbs, totalMacros.fats];
-
-        const det = A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
-                    A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
-                    A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
-
-        if (Math.abs(det) < 0.001) {
-          console.log('System is singular, using proportional distribution');
-          const proteinQuantity = Math.max(0.5, totalMacros.protein / (proteinFood.protein || 1));
-          const carbQuantity = Math.max(0.5, totalMacros.carbs / (carbFood.carbs || 1));
-          const fatQuantity = Math.max(0.5, totalMacros.fats / (fatFood.fats || 1));
-
-          mealFoods.push(
-            { meal_id: meal.id, food_id: proteinFood.id, quantity: proteinQuantity },
-            { meal_id: meal.id, food_id: carbFood.id, quantity: carbQuantity },
-            { meal_id: meal.id, food_id: fatFood.id, quantity: fatQuantity }
-          );
-
-          usedFoodIds.add(proteinFood.id);
-          usedFoodIds.add(carbFood.id);
-          usedFoodIds.add(fatFood.id);
-        } else {
-          const detX1 = b[0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
-                       A[0][1] * (b[1] * A[2][2] - A[1][2] * b[2]) +
-                       A[0][2] * (b[1] * A[2][1] - A[1][1] * b[2]);
-
-          const detX2 = A[0][0] * (b[1] * A[2][2] - A[1][2] * b[2]) -
-                       b[0] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
-                       A[0][2] * (A[1][0] * b[2] - b[1] * A[2][0]);
-
-          const detX3 = A[0][0] * (A[1][1] * b[2] - b[1] * A[2][1]) -
-                       A[0][1] * (A[1][0] * b[2] - b[1] * A[2][0]) +
-                       b[0] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
-
-          let proteinQuantity = Math.max(0.5, detX1 / det);
-          let carbQuantity = Math.max(0.5, detX2 / det);
-          let fatQuantity = Math.max(0.5, detX3 / det);
-
-          proteinQuantity = Math.min(5, proteinQuantity);
-          carbQuantity = Math.min(5, carbQuantity);
-          fatQuantity = Math.min(5, fatQuantity);
-
-          console.log(`Calculated quantities: protein=${proteinQuantity.toFixed(2)}, carbs=${carbQuantity.toFixed(2)}, fats=${fatQuantity.toFixed(2)}`);
-
-          mealFoods.push(
-            { meal_id: meal.id, food_id: proteinFood.id, quantity: proteinQuantity },
-            { meal_id: meal.id, food_id: carbFood.id, quantity: carbQuantity },
-            { meal_id: meal.id, food_id: fatFood.id, quantity: fatQuantity }
-          );
-
-          usedFoodIds.add(proteinFood.id);
-          usedFoodIds.add(carbFood.id);
-          usedFoodIds.add(fatFood.id);
-        }
-
-        console.log('Meal foods to insert:', mealFoods.length);
-
-        if (mealFoods.length > 0) {
-          const { error: insertError } = await supabase
-            .from('meal_foods')
-            .insert(mealFoods);
-
-          if (insertError) {
-            console.error('Insert error:', insertError);
-            throw insertError;
-          }
-          console.log('Inserted', mealFoods.length, 'foods for meal');
-        }
-      }
-
-      console.log('Distribution complete, fetching updated diet');
+      const { autoDistributeFoods } = await import('../lib/autoDistribute');
+      await autoDistributeFoods(mealSelections, targetProtein, targetCarbs, targetFats);
       await fetchLatestDiet();
-      console.log('Diet fetched successfully');
     } catch (err: any) {
       console.error('Error auto-distributing foods:', err);
       setError(err.message || 'Erro ao distribuir alimentos automaticamente');
@@ -1127,6 +829,12 @@ const DietPlan = () => {
           isOpen={showAutoDistributeModal}
           onClose={() => setShowAutoDistributeModal(false)}
           dietId={diet.id}
+          meals={diet.meals?.filter(m => {
+            if (diet.meals.some(meal => meal.day_of_week !== undefined && meal.day_of_week !== null)) {
+              return m.day_of_week === selectedDayOfWeek;
+            }
+            return true;
+          }) || []}
           onDistribute={handleAutoDistribute}
         />
       )}
