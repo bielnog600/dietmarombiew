@@ -321,12 +321,13 @@ const DietPlan = () => {
     try {
       const { data: foodsData, error: foodsError } = await supabase
         .from('foods')
-        .select('*')
+        .select('*, food_categories(*)')
         .in('id', selectedFoodIds);
 
       if (foodsError) throw foodsError;
 
       console.log('Fetched foods:', foodsData?.length);
+      console.log('Foods with categories:', foodsData?.map(f => ({ name: f.name, category: f.food_categories?.name })));
 
       const targetProtein = diet.macros?.protein || Math.round((diet.calories * 0.3) / 4);
       const targetCarbs = diet.macros?.carbs || Math.round((diet.calories * 0.45) / 4);
