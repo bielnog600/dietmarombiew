@@ -445,6 +445,7 @@ const DietPlan = () => {
             const valid = categoryName.includes('café') ||
                    categoryName.includes('breakfast') ||
                    categoryName.includes('manhã') ||
+                   categoryName.includes('carboidrato') ||
                    (isFlexibleCategory && !categoryName.includes('jantar') && !categoryName.includes('almoço'));
             console.log(`  -> Café da manhã check: ${valid}`);
             return valid;
@@ -474,6 +475,7 @@ const DietPlan = () => {
                    categoryName.includes('dinner') ||
                    categoryName.includes('ceia') ||
                    categoryName.includes('proteína') ||
+                   categoryName.includes('carboidrato') ||
                    (isFlexibleCategory && !categoryName.includes('fruta'));
             console.log(`  -> Jantar check: ${valid}`);
             return valid;
