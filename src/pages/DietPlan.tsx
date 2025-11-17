@@ -405,6 +405,8 @@ const DietPlan = () => {
 
       console.log('Distributing with meal-specific macro targets');
 
+      const usedFoodIds = new Set<string>();
+
       for (let i = 0; i < mealsForDay.length; i++) {
         const meal = mealsForDay[i];
         const mealType = getMealType(meal.name, i);
@@ -505,8 +507,8 @@ const DietPlan = () => {
           return true;
         };
 
-        const validFoods = foodsData.filter(f => isFoodValidForMeal(f, meal.name, i));
-        console.log(`Filtered foods for "${meal.name}": ${validFoods.length} valid out of ${foodsData.length} total`);
+        const validFoods = foodsData.filter(f => isFoodValidForMeal(f, meal.name, i) && !usedFoodIds.has(f.id));
+        console.log(`Filtered foods for "${meal.name}": ${validFoods.length} valid out of ${foodsData.length} total (${usedFoodIds.size} already used)`);
 
         const categorizedFoods = categorizeFoods(validFoods);
 
@@ -514,7 +516,8 @@ const DietPlan = () => {
           const selected: typeof foodsData = [];
 
           if (mealType === 'low-carb') {
-            selected.push(...categorizedFoods.protein.slice(0, 2));
+            selected.push(...categorizedFoods.protein.slice(0, 1));
+            selected.push(...categorizedFoods.carbs.slice(0, 1));
             selected.push(...categorizedFoods.fats.slice(0, 1));
           } else if (mealType === 'pre-workout') {
             selected.push(...categorizedFoods.protein.slice(0, 1));
@@ -571,6 +574,8 @@ const DietPlan = () => {
             food_id: food.id,
             quantity
           });
+
+          usedFoodIds.add(food.id);
         }
 
         console.log('Meal foods to insert:', mealFoods.length);
