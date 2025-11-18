@@ -97,26 +97,6 @@ function UserManagement() {
     setShowWaterIntakeModal(true);
   };
 
-  const handleToggleCarbCycling = async (userId: string, currentValue: boolean) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ carb_cycling_enabled: !currentValue })
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
-
-      setUsers(users.map(user => 
-        user.id === userId 
-          ? { ...user, carb_cycling_enabled: !currentValue }
-          : user
-      ));
-    } catch (err) {
-      console.error('Error toggling carb cycling:', err);
-      setError('Erro ao atualizar carb cycling');
-    }
-  };
-
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -464,7 +444,6 @@ function UserManagement() {
           <thead>
             <tr className="border-b border-[#f8c045]/10">
               <th className="text-left py-3 px-4">Nome</th>
-              <th className="text-center py-3 px-4">Carb Cycling</th>
               <th className="text-center py-3 px-4">Ações</th>
             </tr>
           </thead>
@@ -477,18 +456,6 @@ function UserManagement() {
                     className="text-[#f8c045] hover:text-[#e6b041] transition text-left"
                   >
                     {user.name}
-                  </button>
-                </td>
-                <td className="py-3 px-4 text-center">
-                  <button
-                    onClick={() => handleToggleCarbCycling(user.id, user.carb_cycling_enabled || false)}
-                    className={`px-4 py-2 rounded-lg transition font-medium ${
-                      user.carb_cycling_enabled
-                        ? 'bg-green-900/50 text-green-100 hover:bg-green-900/70'
-                        : 'bg-red-900/50 text-red-100 hover:bg-red-900/70'
-                    }`}
-                  >
-                    {user.carb_cycling_enabled ? 'Ativo' : 'Inativo'}
                   </button>
                 </td>
                 <td className="py-3 px-4">
