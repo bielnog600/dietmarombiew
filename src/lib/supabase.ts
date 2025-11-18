@@ -219,23 +219,31 @@ export async function withRetry<T>(
 
 // Admin function to update user password via edge function
 export async function updateUserPassword(userId: string, password: string) {
-  const apiUrl = `${supabaseUrl}/functions/v1/update-user-password`;
+  try {
+    const apiUrl = `${supabaseUrl}/functions/v1/update-user-password`;
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${supabaseKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ userId, password })
-  });
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, password })
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update password');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update password');
+    }
+
+    return response.json();
+  } catch (error: any) {
+    // If edge function is not deployed, throw a clear error
+    if (error.message?.includes('fetch')) {
+      throw new Error('A função de atualização de senha não está disponível. Entre em contato com o administrador.');
+    }
+    throw error;
   }
-
-  return response.json();
 }
 
 // Cleanup function

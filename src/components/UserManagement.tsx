@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, updateUserPassword } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { Plus, Pencil, Trash2, X, Calculator, Eye, Droplet, Calendar } from 'lucide-react';
 import type { User, MacroDistribution, Diet } from '../types';
 import DietPlanning from './DietPlanning';
@@ -97,6 +97,23 @@ function UserManagement() {
     setShowWaterIntakeModal(true);
   };
 
+  const handleSendPasswordReset = async () => {
+    if (!selectedUser?.email) return;
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(selectedUser.email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+
+      if (error) throw error;
+
+      alert(`Link de redefinição de senha enviado para ${selectedUser.email}`);
+    } catch (err: any) {
+      console.error('Error sending reset email:', err);
+      setError('Erro ao enviar link de redefinição: ' + err.message);
+    }
+  };
+
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -126,12 +143,8 @@ function UserManagement() {
 
       if (updateError) throw updateError;
 
-      if (formData.password) {
-        await updateUserPassword(selectedUser.id, formData.password);
-      }
-
-      setUsers(users.map(user => 
-        user.id === selectedUser.id 
+      setUsers(users.map(user =>
+        user.id === selectedUser.id
           ? { ...user, ...updates }
           : user
       ));
@@ -743,15 +756,18 @@ function UserManagement() {
 
               <div>
                 <label className="block text-gray-300 text-sm font-bold mb-2">
-                  Nova Senha (opcional)
+                  Redefinir Senha
                 </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full bg-[rgb(23,23,23)] text-gray-300 p-2 rounded-lg border border-[#f8c045]/20 focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50"
-                  placeholder="Deixe em branco para manter a senha atual"
-                />
+                <button
+                  type="button"
+                  onClick={handleSendPasswordReset}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                >
+                  Enviar Link de Redefinição por Email
+                </button>
+                <p className="text-gray-400 text-xs mt-1">
+                  Um email será enviado ao usuário com um link para redefinir a senha
+                </p>
               </div>
 
               <div>
