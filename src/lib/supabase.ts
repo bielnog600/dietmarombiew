@@ -217,6 +217,27 @@ export async function withRetry<T>(
   throw lastError;
 }
 
+// Admin function to update user password via edge function
+export async function updateUserPassword(userId: string, password: string) {
+  const apiUrl = `${supabaseUrl}/functions/v1/update-user-password`;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${supabaseKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId, password })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update password');
+  }
+
+  return response.json();
+}
+
 // Cleanup function
 export function cleanup() {
   if (heartbeatInterval) {

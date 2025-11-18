@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, updateUserPassword } from '../lib/supabase';
 import { Plus, Pencil, Trash2, X, Calculator, Eye, Droplet, Calendar } from 'lucide-react';
 import type { User, MacroDistribution, Diet } from '../types';
 import DietPlanning from './DietPlanning';
@@ -127,12 +127,7 @@ function UserManagement() {
       if (updateError) throw updateError;
 
       if (formData.password) {
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
-          selectedUser.id,
-          { password: formData.password }
-        );
-
-        if (passwordError) throw passwordError;
+        await updateUserPassword(selectedUser.id, formData.password);
       }
 
       setUsers(users.map(user => 
