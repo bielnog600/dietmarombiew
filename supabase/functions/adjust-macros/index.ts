@@ -314,42 +314,89 @@ ${foodsList}
 
    ✅ PENSE SEMPRE: "Esta quantidade faz sentido na vida real?"
 
-   📋 EXEMPLOS DE REFEIÇÕES REALISTAS:
+   📋 EXEMPLOS DE REFEIÇÕES REALISTAS (SIGA ESTE MODELO):
 
-   ✅ CORRETO - Café da manhã realista:
-   - Ovos: quantity 3.0 (300g = 5 ovos grandes)
-   - Aveia: quantity 0.6 (60g = 6 colheres)
-   - Banana: quantity 1.0 (100g = 1 banana média)
-   → Faz sentido! ✓
+   🥣 CAFÉ DA MANHÃ (~20-25% das calorias):
+   ✅ CORRETO:
+   - Ovos inteiros: quantity 2.0 (200g = 3-4 ovos)
+   - Claras: quantity 1.5 (150g = 4-5 claras)
+   - Aveia: quantity 0.15-0.50 (15g a 50g)
+   - Morangos/Frutas vermelhas: quantity 0.5-1.0 (50g a 100g)
 
-   ✅ CORRETO - Pós-treino realista:
-   - Frango: quantity 1.5 (150g)
-   - Arroz: quantity 1.0 (100g cru = 300g cozido)
-   - Brócolis: quantity 1.5 (150g)
-   → Faz sentido! ✓
+   🔥 LANCHE MANHÃ (~10-15% das calorias):
+   ✅ CORRETO:
+   - Iogurte grego: quantity 1.0-1.5 (100g a 150g)
+   - Amêndoas/Castanhas: quantity 0.08-0.20 (8g a 20g = 1 punhado pequeno)
 
-   ❌ ERRADO - Refeição absurda:
-   - Frango: quantity 0.3 (30g) → Muito pouco!
-   - Banana: quantity 0.2 (20g) → Isso é 1/5 de banana!
-   - Pasta amendoim: quantity 0.03 (3g) → Impossível medir!
-   → Não faz sentido! ✗
+   💪 ALMOÇO (~25-35% das calorias):
+   ✅ CORRETO:
+   - Frango/Carne: quantity 1.2-1.8 (120g a 180g)
+   - Arroz integral: quantity 0.5-1.0 (50g a 100g cru = 150-300g cozido)
+   - Brócolis/Vegetais: quantity 1.0-1.5 (100g a 150g)
+   - Azeite: quantity 0.05-0.10 (5ml a 10ml = 1-2 colheres chá)
 
-   🎯 REGRA DE OURO: Se você não conseguiria medir/comer essa quantidade na vida real, NÃO USE!
+   ⚡ PRÉ/PÓS-TREINO (~15-25% das calorias):
+   ✅ CORRETO:
+   - Whey protein: quantity 0.3 (30g = 1 dose)
+   - Banana: quantity 0.6-1.0 (60g a 100g)
+   - Pasta amendoim: quantity 0.05-0.15 (5g a 15g = 1 colher chá/sopa)
 
-4. VALIDAÇÃO MATEMÁTICA OBRIGATÓRIA:
+   🌙 JANTAR/CEIA (~15-20% das calorias):
+   ✅ CORRETO:
+   - Carne magra/Frango: quantity 1.0-1.5 (100g a 150g)
+   - Abobrinha/Couve-flor: quantity 1.0-2.0 (100g a 200g)
+   - Azeite: quantity 0.05-0.10 (5ml a 10ml)
+
+   ❌ NUNCA FAÇA ISSO:
+   - ❌ Frango 0.3 (30g) → Muito pouco!
+   - ❌ Banana 0.2 (20g) → 1/5 de banana!
+   - ❌ Pasta 0.03 (3g) → Impossível medir!
+   - ❌ Arroz 5.0 (500g cru) → Exagerado!
+
+   🎯 REGRA DE OURO: Pense em GRAMAS REAIS! Se não dá pra pesar/comer na vida real, NÃO USE!
+
+4. EXEMPLO DE DIETA PROFISSIONAL (1200 KCAL - CUTTING):
+
+   🥣 Café da manhã (~250 kcal):
+   - Ovos inteiros: quantity 2.0 (200g = 3-4 ovos)
+   - Claras: quantity 1.5 (150g = 4-5 claras)
+   - Aveia: quantity 0.15 (15g)
+   - Morangos: quantity 0.5 (50g)
+   Macros: ~28g P / 12g C / 9g G
+
+   🔥 Lanche manhã (~150 kcal):
+   - Iogurte grego light: quantity 1.2 (120g)
+   - Amêndoas: quantity 0.08 (8g)
+   Macros: ~15g P / 6g C / 6g G
+
+   💪 Almoço (~350 kcal):
+   - Peito de frango: quantity 1.4 (140g)
+   - Arroz integral: quantity 0.5 (50g cozido)
+   - Brócolis: quantity 1.2 (120g)
+   - Azeite: quantity 0.05 (5ml = 1 colher chá)
+   Macros: ~40g P / 22g C / 10g G
+
+   ⚡ Pré/Pós-treino (~250 kcal):
+   - Whey protein: quantity 0.3 (30g = 1 dose)
+   - Banana: quantity 0.6 (60g)
+   - Pasta amendoim: quantity 0.05 (5g)
+   Macros: ~25g P / 18g C / 6g G
+
+   🌙 Jantar/Ceia (~200 kcal):
+   - Carne magra/Frango: quantity 1.2 (120g)
+   - Abobrinha/Couve-flor: quantity 1.5 (150g)
+   - Azeite: quantity 0.05 (5ml)
+   Macros: ~27g P / 5g C / 7g G
+
+   TOTAL: ~1200 kcal | 135g P / 63g C / 38g G
+
+   ⚠️ ADAPTE ESTE MODELO para as calorias e macros solicitados!
+   Use estas PROPORÇÕES mas ajuste as quantities para atingir os macros exatos!
+
+5. VALIDAÇÃO MATEMÁTICA OBRIGATÓRIA:
    ⚠️ ANTES DE RESPONDER, CALCULE A SOMA TOTAL DE TODOS OS ALIMENTOS DE TODAS AS REFEIÇÕES:
 
-   📊 EXEMPLO DE CÁLCULO CORRETO:
-
-   Café da manhã:
-   • Ovo (13g P, 1.1g C, 11g G por 100g) × quantity 3.0 = 39g P, 3.3g C, 33g G
-   • Aveia (16g P, 66g C, 6.9g G por 100g) × quantity 0.8 = 12.8g P, 52.8g C, 5.5g G
-   • Banana (1.1g P, 23g C, 0.3g G por 100g) × quantity 1.0 = 1.1g P, 23g C, 0.3g G
-   Subtotal: 52.9g P, 79.1g C, 38.8g G
-
-   ... (repita para todas as refeições)
-
-   SOMA TOTAL = 52.9g P + [pré-treino] + [pós-treino] + [jantar] + [ceia]
+   SOMA TOTAL = [café] + [lanche] + [almoço] + [pré/pós-treino] + [jantar]
 
    ✅ REGRAS CRÍTICAS - A SOMA FINAL DEVE SER:
    • Proteína: entre ${targetProtein - 8}g e ${targetProtein + 8}g (meta: ${targetProtein}g)
@@ -392,15 +439,18 @@ ${foodsList}
 5. A soma total DEVE estar dentro das margens: ±3g para macros, ±20 kcal
 
 📋 PASSO A PASSO OBRIGATÓRIO:
-1. Monte as refeições com alimentos coerentes
-2. Distribua os macros entre as refeições usando a tabela sugerida
-3. Calcule quantity para cada alimento: quantity = (gramas_necessárias) / (portion_size)
-4. SOME todos os macros de TODAS as refeições
-5. COMPARE com a meta: ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g F
-6. Se estiver ABAIXO da meta: AUMENTE as quantities ou adicione mais alimentos
-7. Se estiver ACIMA da meta: REDUZA as quantities
-8. Repita até a soma bater na meta (±3g)
-9. Só responda quando: Soma Total ≈ Meta Total
+1. Monte as refeições com alimentos coerentes (seguindo o MODELO 1200 KCAL acima)
+2. Pense em GRAMAS REAIS primeiro: "Quantos gramas eu preciso?"
+3. Calcule quantity para cada alimento: quantity = (gramas_desejadas) / (portion_size)
+   EXEMPLO: Preciso 140g de frango, portion_size é 100g → quantity = 140/100 = 1.4 ✓
+4. Verifique se as quantities fazem sentido (não muito pequenas, não muito grandes)
+5. SOME todos os macros de TODAS as refeições
+6. COMPARE com a meta: ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g F
+7. Se estiver ABAIXO da meta: AUMENTE as quantities (ex: 1.4 → 1.6)
+8. Se estiver ACIMA da meta: REDUZA as quantities (ex: 1.4 → 1.2)
+9. Repita até a soma bater na meta (±8g para macros, ±50 kcal)
+10. VALIDE NOVAMENTE: Todas as quantities fazem sentido? (mínimos realistas?)
+11. Só responda quando: Soma Total ≈ Meta Total E Quantities Realistas ✓
 
 🚨 EXEMPLO DO QUE DEU ERRADO ANTES:
 Meta: 178g P, 266g C, 66g F
@@ -430,12 +480,19 @@ REGRAS OBRIGATÓRIAS:
 6. Varie as fontes de proteína, carboidrato e gordura em cada refeição
 7. Adapte conforme o estilo: low carb, flexível, rica em proteína, etc.
 
-⚠️ QUANTIDADES REALISTAS (CRÍTICO):
-8. NUNCA use quantities absurdas (ex: 0.1 de banana, 0.03 de pasta amendoim)
-9. Banana: mínimo 1.0 (1 banana), Pasta amendoim: mínimo 0.2 (1 colher)
-10. Frango/Carne: mínimo 1.0 (100g), Ovos: mínimo 2.0 (3-4 ovos)
-11. PENSE: "Eu conseguiria medir/comer isso na vida real?" Se não, AJUSTE!
-12. Priorize quantities que façam sentido prático e nutricional
+⚠️ QUANTIDADES REALISTAS EM GRAMAS (CRÍTICO):
+8. PENSE EM GRAMAS PRIMEIRO, depois converta para quantity
+9. EXEMPLO: Preciso 140g de frango → quantity = 140 / 100 (portion_size) = 1.4 ✓
+10. NUNCA use quantities absurdas: 0.1 banana (10g), 0.03 pasta (3g) ❌
+11. Frango/Carne: 100-250g (quantity 1.0-2.5) ✓
+12. Ovos: 200-400g = 3-6 ovos (quantity 2.0-4.0) ✓
+13. Banana: 60-200g = meia a 2 bananas (quantity 0.6-2.0) ✓
+14. Aveia: 15-100g (quantity 0.15-1.0) ✓
+15. Pasta amendoim: 5-50g (quantity 0.05-0.5) ✓
+16. Azeite: 5-30ml (quantity 0.05-0.3) ✓
+
+🎯 SIGA O MODELO DA DIETA 1200 KCAL mostrado no prompt!
+Use essas PROPORÇÕES e GRAMAS REAIS como referência!
 
 Timestamp: ${Date.now()} - Use este número para garantir variação!`
       },
@@ -517,23 +574,31 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
       for (const meal of result.meals) {
         for (const food of meal.foods || []) {
           const foodData = allFoods.find(f => f.id === food.foodId);
-          if (foodData && food.quantity < 0.1) {
+          if (foodData && food.quantity < 0.01) {
             console.warn(`⚠️ Unrealistic quantity: ${foodData.name} = ${food.quantity} (too small!)`);
             hasUnrealisticQuantities = true;
           }
           // Validações específicas por tipo de alimento
           if (foodData) {
             const name = foodData.name.toLowerCase();
-            if ((name.includes('frango') || name.includes('carne') || name.includes('peixe')) && food.quantity < 0.8) {
-              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.8)`);
+            // Proteínas: mínimo 100g (1.0)
+            if ((name.includes('frango') || name.includes('carne') || name.includes('peixe') || name.includes('atum')) && food.quantity < 0.8) {
+              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.8 = 80g)`);
               hasUnrealisticQuantities = true;
             }
-            if ((name.includes('banana') || name.includes('maçã')) && food.quantity < 0.8) {
-              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.8 = 1 fruta)`);
+            // Frutas: mínimo metade de uma fruta (50-60g)
+            if ((name.includes('banana') || name.includes('maçã') || name.includes('morango')) && food.quantity < 0.5) {
+              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.5 = 50g)`);
               hasUnrealisticQuantities = true;
             }
-            if (name.includes('pasta') && food.quantity < 0.15) {
-              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.15)`);
+            // Gorduras: podem ser pequenas (5g = 1 colher chá é aceitável)
+            if ((name.includes('pasta') || name.includes('amendoim') || name.includes('azeite') || name.includes('castanha')) && food.quantity < 0.05) {
+              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.05 = 5g/5ml)`);
+              hasUnrealisticQuantities = true;
+            }
+            // Aveia: mínimo 15g
+            if (name.includes('aveia') && food.quantity < 0.15) {
+              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.15 = 15g)`);
               hasUnrealisticQuantities = true;
             }
           }
