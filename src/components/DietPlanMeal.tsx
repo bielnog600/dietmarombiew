@@ -95,8 +95,8 @@ export default function DietPlanMeal({
 
   const handlePortionChange = (mealFoodId: string, currentGrams: number, increment: boolean) => {
     const step = 10; // Adjust portion by 10g increments
-    const minPortion = 25; // Minimum 25g portion
-    const maxPortion = 300; // Maximum 300g portion
+    const minPortion = 5; // Minimum 5g portion
+    const maxPortion = 1000; // Maximum 1000g portion
 
     const newGrams = increment
       ? Math.min(maxPortion, currentGrams + step)
@@ -117,9 +117,9 @@ export default function DietPlanMeal({
   };
 
   const handlePortionInputBlur = (mealFoodId: string) => {
-    const newGrams = parseInt(tempPortionValue) || 25;
-    const minPortion = 25;
-    const maxPortion = 300;
+    const newGrams = parseInt(tempPortionValue) || 5;
+    const minPortion = 5;
+    const maxPortion = 1000;
     const validGrams = Math.min(maxPortion, Math.max(minPortion, newGrams));
 
     onUpdatePortion(mealFoodId, validGrams);
@@ -155,6 +155,16 @@ export default function DietPlanMeal({
             {t('addFood')}
           </button>
         </div>
+        {meal.meal_foods && meal.meal_foods.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-[#f8c045]/10">
+            <p className="text-xs text-gray-500 flex items-center gap-2">
+              <ArrowRightLeft size={12} className="rotate-90 text-[#f8c045]/70" />
+              {language === 'pt'
+                ? 'Clique no ícone ao lado do alimento para substituir • Clique na quantidade para editar'
+                : 'Click the icon next to food to substitute • Click quantity to edit'}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Food List */}
@@ -170,25 +180,30 @@ export default function DietPlanMeal({
             <div key={mealFood.id} className="p-4">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4
-                      className="text-white font-medium cursor-pointer hover:text-[#f8c045] transition"
-                      onClick={() => {
-                        setSelectedFoodForSubstitution({
-                          id: mealFood.food.id,
-                          name: getFoodName(mealFood.food),
-                          protein: mealFood.food.protein,
-                          carbs: mealFood.food.carbs,
-                          fats: mealFood.food.fats,
-                          calories: mealFood.food.calories,
-                          quantity: mealFood.quantity
-                        });
-                        setSubstitutionModalOpen(true);
-                      }}
-                      title={language === 'pt' ? 'Clique para substituir' : 'Click to substitute'}
-                    >
-                      {getFoodName(mealFood.food)}
-                    </h4>
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-white font-medium">
+                        {getFoodName(mealFood.food)}
+                      </h4>
+                      <button
+                        onClick={() => {
+                          setSelectedFoodForSubstitution({
+                            id: mealFood.food.id,
+                            name: getFoodName(mealFood.food),
+                            protein: mealFood.food.protein,
+                            carbs: mealFood.food.carbs,
+                            fats: mealFood.food.fats,
+                            calories: mealFood.food.calories,
+                            quantity: mealFood.quantity
+                          });
+                          setSubstitutionModalOpen(true);
+                        }}
+                        className="text-[#f8c045]/70 hover:text-[#f8c045] transition"
+                        title={language === 'pt' ? 'Substituir alimento' : 'Substitute food'}
+                      >
+                        <ArrowRightLeft size={16} className="rotate-90" />
+                      </button>
+                    </div>
                     <div className="flex items-center space-x-2 ml-4">
                       <button
                         onClick={() => handlePortionChange(mealFood.id, portion, false)}
@@ -200,17 +215,21 @@ export default function DietPlanMeal({
                       {editingPortionId === mealFood.id ? (
                         <input
                           type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={tempPortionValue}
                           onChange={(e) => handlePortionInputChange(e.target.value)}
                           onBlur={() => handlePortionInputBlur(mealFood.id)}
                           onKeyDown={(e) => handlePortionInputKeyDown(e, mealFood.id)}
-                          className="w-16 bg-[rgb(23,23,23)] text-[#f8c045] text-center rounded border border-[#f8c045] focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50 px-1 py-0.5"
+                          placeholder="0"
+                          className="w-20 bg-[rgb(23,23,23)] text-[#f8c045] text-center rounded border-2 border-[#f8c045] focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50 px-2 py-1 font-medium"
                           autoFocus
                         />
                       ) : (
                         <span
                           onClick={() => handlePortionClick(mealFood.id, portion)}
-                          className="text-[#f8c045] min-w-[3ch] text-center cursor-pointer hover:bg-[rgb(23,23,23)] px-2 py-0.5 rounded transition"
+                          className="text-[#f8c045] min-w-[4ch] text-center cursor-pointer hover:bg-[rgb(23,23,23)] hover:ring-2 hover:ring-[#f8c045]/30 px-2 py-1 rounded transition font-medium"
+                          title={language === 'pt' ? 'Clique para editar a quantidade' : 'Click to edit quantity'}
                         >
                           {portion}g
                         </span>
