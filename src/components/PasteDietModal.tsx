@@ -32,19 +32,25 @@ export default function PasteDietModal({
     let currentMeal: { mealName: string; foods: Array<{ quantity: number; food: string }> } | null = null;
 
     const mealNames: Record<string, string> = {
-      'café da manhã': 'breakfast',
-      'cafe da manha': 'breakfast',
-      'breakfast': 'breakfast',
-      'almoço': 'lunch',
-      'almoco': 'lunch',
-      'lunch': 'lunch',
-      'lanche da tarde': 'afternoon_snack',
-      'lanche': 'afternoon_snack',
-      'snack': 'afternoon_snack',
-      'jantar': 'dinner',
-      'dinner': 'dinner',
-      'ceia': 'supper',
-      'supper': 'supper'
+      'café da manhã': 'Café da Manhã',
+      'cafe da manha': 'Café da Manhã',
+      'breakfast': 'Café da Manhã',
+      'almoço': 'Almoço',
+      'almoco': 'Almoço',
+      'lunch': 'Almoço',
+      'lanche da tarde': 'Lanche',
+      'lanche': 'Lanche',
+      'snack': 'Lanche',
+      'jantar': 'Jantar',
+      'dinner': 'Jantar',
+      'ceia': 'Ceia',
+      'supper': 'Ceia',
+      'pré-treino': 'Pré-treino',
+      'pre-treino': 'Pré-treino',
+      'pre workout': 'Pré-treino',
+      'pós-treino': 'Pós-treino',
+      'pos-treino': 'Pós-treino',
+      'post workout': 'Pós-treino'
     };
 
     for (const line of lines) {
@@ -121,10 +127,10 @@ export default function PasteDietModal({
       }
 
       for (const parsedMeal of parsedMeals) {
-        const meal = meals.find(m => m.type === parsedMeal.mealName);
+        const meal = meals.find(m => m.name === parsedMeal.mealName);
 
         if (!meal) {
-          console.warn(`Refeição ${parsedMeal.mealName} não encontrada`);
+          console.warn(`Refeição ${parsedMeal.mealName} não encontrada nas refeições disponíveis:`, meals.map(m => m.name));
           continue;
         }
 
