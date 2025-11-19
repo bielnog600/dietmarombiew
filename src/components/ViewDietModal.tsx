@@ -6,6 +6,7 @@ import AddFoodModal from './AddFoodModal';
 import PasteDietModal from './PasteDietModal';
 import { useTranslation } from '../translations';
 import { generateDiet } from '../lib/diet';
+import { adjustMacrosWithStrategy } from '../lib/macroAdjust';
 
 interface ViewDietModalProps {
   isOpen: boolean;
@@ -496,99 +497,23 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
-  const handleAutoAdjustWithStrategy = (strategy: 'cutting' | 'bulking') => {
-    if (!localDiet || !localDiet.meals || localDiet.meals.length === 0) return;
+  const handleAutoAdjustWithStrategy = async (strategy: 'cutting' | 'bulking') => {
+    if (!localDiet) return;
 
-    const targetProtein = localDiet.macros?.protein || Math.round((localDiet.calories * 0.3) / 4);
-    const targetCarbs = localDiet.macros?.carbs || Math.round((localDiet.calories * 0.45) / 4);
-    const targetFats = localDiet.macros?.fats || Math.round((localDiet.calories * 0.25) / 9);
+    try {
+      const { portions, foodsAdded } = await adjustMacrosWithStrategy(localDiet, strategy);
 
-    const mealDistributions = {
-      cutting: [
-        { protein: 0.30, carbs: 0.175, fats: 0.225 },
-        { protein: 0.15, carbs: 0.225, fats: 0.075 },
-        { protein: 0.25, carbs: 0.325, fats: 0.075 },
-        { protein: 0.20, carbs: 0.125, fats: 0.225 }
-      ],
-      bulking: [
-        { protein: 0.30, carbs: 0.175, fats: 0.225 },
-        { protein: 0.15, carbs: 0.225, fats: 0.075 },
-        { protein: 0.25, carbs: 0.325, fats: 0.075 },
-        { protein: 0.20, carbs: 0.125, fats: 0.225 }
-      ]
-    };
-
-    const distribution = mealDistributions[strategy];
-    const portions: Record<string, number> = {};
-
-    localDiet.meals.forEach((meal, mealIndex) => {
-      const mealDist = distribution[Math.min(mealIndex, distribution.length - 1)];
-      const mealTargetProtein = targetProtein * mealDist.protein;
-      const mealTargetCarbs = targetCarbs * mealDist.carbs;
-      const mealTargetFats = targetFats * mealDist.fats;
-
-      const mealFoods = meal.meal_foods || [];
-
-      mealFoods.forEach(mf => {
-        portions[mf.id] = Math.round(mf.quantity * mf.food.portion_size);
-      });
-
-      for (let iteration = 0; iteration < 100; iteration++) {
-        let currentProtein = 0;
-        let currentCarbs = 0;
-        let currentFats = 0;
-
-        mealFoods.forEach(mf => {
-          const grams = portions[mf.id] || 0;
-          const multiplier = grams / mf.food.portion_size;
-          currentProtein += mf.food.protein * multiplier;
-          currentCarbs += mf.food.carbs * multiplier;
-          currentFats += mf.food.fats * multiplier;
-        });
-
-        const proteinDiff = currentProtein - mealTargetProtein;
-        const carbsDiff = currentCarbs - mealTargetCarbs;
-        const fatsDiff = currentFats - mealTargetFats;
-
-        if (Math.abs(proteinDiff) <= 1 && Math.abs(carbsDiff) <= 1 && Math.abs(fatsDiff) <= 0.5) {
-          break;
-        }
-
-        const proteinFoods = mealFoods.filter(mf => (mf.food.protein / mf.food.portion_size) > 0.05);
-        const carbsFoods = mealFoods.filter(mf => (mf.food.carbs / mf.food.portion_size) > 0.05);
-        const fatsFoods = mealFoods.filter(mf => (mf.food.fats / mf.food.portion_size) > 0.05);
-
-        if (Math.abs(proteinDiff) > 1 && proteinFoods.length > 0) {
-          const adjustmentPerFood = -proteinDiff / proteinFoods.length;
-          proteinFoods.forEach(mf => {
-            const proteinPerGram = mf.food.protein / mf.food.portion_size;
-            const gramsAdjustment = adjustmentPerFood / proteinPerGram;
-            const currentGrams = portions[mf.id];
-            portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
-          });
-        } else if (Math.abs(carbsDiff) > 1 && carbsFoods.length > 0) {
-          const adjustmentPerFood = -carbsDiff / carbsFoods.length;
-          carbsFoods.forEach(mf => {
-            const carbsPerGram = mf.food.carbs / mf.food.portion_size;
-            const gramsAdjustment = adjustmentPerFood / carbsPerGram;
-            const currentGrams = portions[mf.id];
-            portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
-          });
-        } else if (Math.abs(fatsDiff) > 0.5 && fatsFoods.length > 0) {
-          const adjustmentPerFood = -fatsDiff / fatsFoods.length;
-          fatsFoods.forEach(mf => {
-            const fatsPerGram = mf.food.fats / mf.food.portion_size;
-            const gramsAdjustment = (adjustmentPerFood / fatsPerGram) * 0.4;
-            const currentGrams = portions[mf.id];
-            portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
-          });
-        } else {
-          break;
-        }
+      if (foodsAdded) {
+        await refreshDietData();
+        setTimeout(() => handleAutoAdjustWithStrategy(strategy), 800);
+        return;
       }
-    });
 
-    setPreviewTotals(portions);
+      setPreviewTotals(portions);
+    } catch (err) {
+      console.error('Error adjusting macros:', err);
+      setError('Erro ao ajustar macros');
+    }
   };
 
   const handleAutoAdjustQuantities = (strategy?: 'cutting' | 'bulking') => {
