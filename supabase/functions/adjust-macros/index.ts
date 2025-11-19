@@ -101,40 +101,60 @@ ${foodsList}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⚠️ INSTRUÇÕES PARA CRIAR O PLANO ALIMENTAR:
+⚠️ INSTRUÇÕES CRÍTICAS PARA CRIAR O PLANO ALIMENTAR:
 
-1. CRIAR REFEIÇÕES COMPLETAS E EQUILIBRADAS:
-   ✓ Para CUTTING (${strategy === 'cutting' ? 'ATIVO' : 'INATIVO'}):
-     - Priorize proteínas magras (peito de frango, peixe, claras de ovo)
-     - Carboidratos complexos (aveia, batata doce, arroz integral)
-     - Gorduras controladas (azeite, castanhas em pequena quantidade)
-     - Vegetais em todas as refeições principais
+1. REFEIÇÕES REALISTAS E COERENTES:
 
-   ✓ Para BULKING (${strategy === 'bulking' ? 'ATIVO' : 'INATIVO'}):
-     - Aumente porções de proteína e carboidratos
-     - Inclua mais gorduras saudáveis (abacate, castanhas, azeite)
-     - Adicione lanches entre refeições principais
-     - Inclua alimentos calóricos (pasta de amendoim, frutas secas)
+   ✓ CAFÉ DA MANHÃ - Combine apenas:
+     - Ovos OU iogurte (proteína)
+     - Aveia OU pão integral OU banana (carboidrato)
+     - Castanhas OU pasta de amendoim (gordura saudável - pequena quantidade)
 
-2. VARIEDADE DE ALIMENTOS:
-   ✓ Combine 3-5 alimentos diferentes por refeição
-   ✓ Use proteínas variadas (frango, peixe, ovos, whey)
-   ✓ Inclua carboidratos de fontes diferentes
-   ✓ Adicione gorduras saudáveis
-   ✓ SEMPRE inclua vegetais nas refeições principais
+   ✓ PRÉ-TREINO - Combine apenas:
+     - Banana OU pão (carboidrato rápido)
+     - Pasta de amendoim OU castanhas (gordura - pouca quantidade)
 
-3. CÁLCULO DE QUANTIDADES:
-   ✓ Use regra de três: Se frango tem 0.31g P por 1g → para 42g P precisa de 135g
-   ✓ Arredonde para múltiplos de 5g (135g, 140g, 145g...)
-   ✓ Quantidade mínima: 30g por alimento
-   ✓ Quantidade máxima: 400g por alimento
+   ✓ PÓS-TREINO - Combine apenas:
+     - Frango OU atum OU ovos (proteína)
+     - Arroz OU batata doce OU macarrão (carboidrato)
+     - Brócolis OU tomate OU cenoura (vegetal)
 
-4. BALANCEAMENTO FINO:
-   ✓ A SOMA TOTAL de TODAS as refeições DEVE SER:
-     • Proteína: ${targetProtein}g (±3g de margem)
-     • Carboidratos: ${targetCarbs}g (±3g de margem)
-     • Gorduras: ${targetFats}g (±3g de margem)
-     • Calorias: ${targetCalories} kcal (±20 kcal de margem)
+   ✓ JANTAR - Combine apenas:
+     - Frango OU carne OU salmão OU ovo (proteína)
+     - Arroz OU batata doce (carboidrato - menor porção)
+     - Brócolis OU espinafre OU salada (vegetal)
+
+   ✓ CEIA - Combine apenas:
+     - Queijo cottage OU iogurte OU ovos (proteína)
+     - Castanhas OU abacate (gordura)
+
+2. ERROS QUE VOCÊ DEVE EVITAR:
+   ❌ NÃO misture frango com aveia no café da manhã
+   ❌ NÃO coloque iogurte no jantar
+   ❌ NÃO use arroz no café da manhã
+   ❌ NÃO exagere nas quantidades (máximo 200g de proteína por refeição)
+   ❌ NÃO coloque frango em todas as refeições
+
+3. CÁLCULO PRECISO DE QUANTIDADES:
+   ⚠️ ATENÇÃO: quantity é o MULTIPLICADOR da porção, não gramas!
+
+   Exemplo: Peito de frango tem portion_size = 100g
+   - Para 150g de frango → quantity = 1.5
+   - Para 200g de frango → quantity = 2.0
+   - Para 100g de frango → quantity = 1.0
+
+   ⚠️ QUANTIDADE MÁXIMA por alimento:
+   - Proteínas: quantity máximo 2.5 (250g)
+   - Carboidratos: quantity máximo 2.0 (200g)
+   - Gorduras: quantity máximo 0.5 (50g)
+   - Vegetais: quantity máximo 1.5 (150g)
+
+4. BALANCEAMENTO OBRIGATÓRIO:
+   ⚠️ A SOMA TOTAL EXATA de TODAS as refeições DEVE SER:
+     • Proteína: ${targetProtein}g (±2g de margem aceitável)
+     • Carboidratos: ${targetCarbs}g (±2g de margem aceitável)
+     • Gorduras: ${targetFats}g (±2g de margem aceitável)
+     • Calorias: ${targetCalories} kcal (±15 kcal de margem aceitável)
 
 5. ESTRUTURA DO JSON (sem markdown):
 {
@@ -142,26 +162,27 @@ ${foodsList}
     {
       "name": "Café da manhã",
       "foods": [
-        { "foodId": "uuid-do-alimento-1", "quantity": 2.0 },
-        { "foodId": "uuid-do-alimento-2", "quantity": 1.5 },
-        { "foodId": "uuid-do-alimento-3", "quantity": 3.0 }
+        { "foodId": "uuid-do-ovo", "quantity": 2.0 },
+        { "foodId": "uuid-da-aveia", "quantity": 0.5 },
+        { "foodId": "uuid-da-banana", "quantity": 1.0 }
       ]
     },
     {
       "name": "Pré-treino",
       "foods": [
-        { "foodId": "uuid-do-alimento-4", "quantity": 1.0 },
-        { "foodId": "uuid-do-alimento-5", "quantity": 2.5 }
+        { "foodId": "uuid-da-banana", "quantity": 1.5 },
+        { "foodId": "uuid-da-pasta-amendoim", "quantity": 0.2 }
       ]
     }
   ]
 }
 
 ⚡ PRIORIDADE MÁXIMA:
-1. Criar refeições COMPLETAS e VARIADAS
-2. Bater EXATAMENTE as macros e calorias totais
-3. Usar alimentos do banco disponível
-4. Seguir princípios nutricionais para ${strategy.toUpperCase()}
+1. Criar refeições COERENTES e REALISTAS (café da manhã com alimentos de café)
+2. Usar quantities CORRETAS (são multiplicadores, não gramas!)
+3. NÃO EXCEDER os limites de quantity por tipo de alimento
+4. Bater EXATAMENTE as macros totais (±2g)
+5. Seguir princípios nutricionais para ${strategy.toUpperCase()}
 
 RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
 
