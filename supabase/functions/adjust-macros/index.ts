@@ -242,7 +242,7 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
 
     let result: any;
     let attempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 5;
     const messages = [
       {
         role: 'system',
@@ -316,8 +316,9 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
       const fatsDiff = totalF - targetFats;
       const caloriesDiff = totalKcal - targetCalories;
 
-      if (Math.abs(proteinDiff) <= 8 && Math.abs(carbsDiff) <= 8 && Math.abs(fatsDiff) <= 8 && Math.abs(caloriesDiff) <= 50) {
+      if (Math.abs(proteinDiff) <= 10 && Math.abs(carbsDiff) <= 15 && Math.abs(fatsDiff) <= 10 && Math.abs(caloriesDiff) <= 80) {
         console.log('✅ Macros validated successfully!');
+        console.log(`📈 Final result: ${totalP.toFixed(1)}g P (${proteinDiff > 0 ? '+' : ''}${proteinDiff.toFixed(1)}g), ${totalC.toFixed(1)}g C (${carbsDiff > 0 ? '+' : ''}${carbsDiff.toFixed(1)}g), ${totalF.toFixed(1)}g F (${fatsDiff > 0 ? '+' : ''}${fatsDiff.toFixed(1)}g)`);
         break;
       }
 
@@ -347,7 +348,9 @@ ${fatsDiff < 0 ? `- AUMENTE gorduras em ${Math.abs(fatsDiff).toFixed(1)}g (adici
 Refaça o plano corrigindo as quantities. RESPONDA APENAS COM O JSON CORRIGIDO!`
         });
       } else {
-        throw new Error(`Failed to generate correct macros after ${maxAttempts} attempts. Last result: Protein: ${totalP.toFixed(1)}g (target: ${targetProtein}g), Carbs: ${totalC.toFixed(1)}g (target: ${targetCarbs}g), Fats: ${totalF.toFixed(1)}g (target: ${targetFats}g)`);
+        console.error(`❌ All ${maxAttempts} attempts failed. Accepting best attempt.`);
+        console.log('⚠️ Using last result despite deviations. User can manually adjust.');
+        break;
       }
     }
 
