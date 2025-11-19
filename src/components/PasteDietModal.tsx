@@ -153,12 +153,14 @@ export default function PasteDietModal({
           const food = await findFoodInDatabase(item.food);
 
           if (food) {
+            const calculatedQuantity = item.quantity / food.portion_size;
+
             await supabase
               .from('meal_foods')
               .insert({
                 meal_id: meal.id,
                 food_id: food.id,
-                quantity: item.quantity
+                quantity: calculatedQuantity
               });
           } else {
             console.warn(`Alimento não encontrado: ${item.food}`);
