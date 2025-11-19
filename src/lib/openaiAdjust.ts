@@ -33,7 +33,8 @@ export async function adjustMacrosWithAI(
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || 'Failed to adjust macros');
+    console.error('Edge Function Error:', error);
+    throw new Error(error.error || error.details || 'Failed to adjust macros');
   }
 
   const data = await response.json();

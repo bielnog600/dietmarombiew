@@ -24,6 +24,8 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const { dietId, strategy, targetCalories, targetProtein, targetCarbs, targetFats, userId } = body;
 
+    console.log('Request params:', { dietId, userId, strategy, targetCalories });
+
     if (!dietId || !userId) {
       throw new Error('Missing required parameters: dietId or userId');
     }
@@ -33,14 +35,14 @@ Deno.serve(async (req: Request) => {
       .select(`
         id,
         user_id,
-        meals!meals_diet_id_fkey (
+        meals (
           id,
           name,
           order,
-          meal_foods!meal_foods_meal_id_fkey (
+          meal_foods (
             id,
             quantity,
-            food:foods!meal_foods_food_id_fkey (
+            food:foods (
               id,
               name,
               protein,
@@ -52,24 +54,32 @@ Deno.serve(async (req: Request) => {
         )
       `)
       .eq('id', dietId)
-      .order('order', { foreignTable: 'meals' })
       .maybeSingle();
 
-    if (dietError || !diet) {
-      throw new Error(`Diet not found: ${dietError?.message || 'Unknown error'}`);
+    console.log('Diet query result:', { diet, error: dietError });
+
+    if (dietError) {
+      throw new Error(`Diet query error: ${dietError.message}`);
+    }
+
+    if (!diet) {
+      throw new Error('Diet not found');
     }
 
     const meals = diet.meals || [];
+    console.log(`Found ${meals.length} meals`);
 
     if (meals.length === 0) {
       throw new Error('No meals found in diet');
     }
 
-    const { data: allFoods } = await supabase
+    const { data: allFoods, error: foodsError } = await supabase
       .from('foods')
       .select('id, name, protein, carbs, fats, calories, portion_size')
       .eq('user_id', userId)
       .order('name');
+
+    console.log(`Found ${allFoods?.length || 0} foods, error:`, foodsError);
 
     const distributionsCutting = [
       { name: 'Café da manhã', kcal: 280, p: 0.30, c: 0.20, f: 0.19 },
