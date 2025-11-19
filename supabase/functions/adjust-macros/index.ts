@@ -38,7 +38,6 @@ Deno.serve(async (req: Request) => {
         meals (
           id,
           name,
-          order,
           meal_foods (
             id,
             quantity,
@@ -242,8 +241,7 @@ ${allFoods ? allFoods.slice(0, 20).map(f => `   • ${f.name}: ${f.protein}g P, 
           .from('meals')
           .insert({
             diet_id: dietId,
-            name: newMeal.name,
-            order: meals.length + 1
+            name: newMeal.name
           })
           .select()
           .single();
