@@ -89,19 +89,16 @@ export default function PasteDietModal({
       .trim();
 
     try {
-      const { data: userFoods } = await supabase
+      const { data: allFoods, error } = await supabase
         .from('foods')
-        .select('*')
-        .eq('user_id', userId);
+        .select('*');
 
-      const { data: globalFoods } = await supabase
-        .from('foods')
-        .select('*')
-        .is('user_id', null);
+      if (error) {
+        console.error('Error fetching foods:', error);
+        return null;
+      }
 
-      const allFoods = [...(userFoods || []), ...(globalFoods || [])];
-
-      if (allFoods.length === 0) return null;
+      if (!allFoods || allFoods.length === 0) return null;
 
       const lowerCleanName = cleanName.toLowerCase();
 
