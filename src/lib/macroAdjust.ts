@@ -165,22 +165,24 @@ async function addFoodToMeal(
     let { data: existingFood } = await supabase
       .from('foods')
       .select('id')
-      .eq('user_id', userId)
       .eq('name', foodData.name)
       .maybeSingle();
 
     let foodId: string;
 
     if (!existingFood) {
+      const calories = Math.round(foodData.protein * 4 + foodData.carbs * 4 + foodData.fats * 9);
+
       const { data: newFood, error: foodError } = await supabase
         .from('foods')
         .insert({
-          user_id: userId,
           name: foodData.name,
           protein: foodData.protein,
           carbs: foodData.carbs,
           fats: foodData.fats,
-          portion_size: foodData.portion_size
+          portion_size: foodData.portion_size,
+          calories: calories,
+          portion: `${foodData.portion_size}g`
         })
         .select()
         .single();
