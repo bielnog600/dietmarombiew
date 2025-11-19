@@ -278,11 +278,63 @@ ${foodsList}
    → Resultado: 1.35 × 31 = 41.85g P ✓
    → Calorias: 1.35 × 165 = 222 kcal
 
-   ⚠️ LIMITE MÁXIMO de quantity por tipo:
-   - Proteínas (frango, carne, peixe, ovo): máximo 2.5
-   - Carboidratos (arroz, batata, aveia): máximo 2.0
-   - Gorduras (azeite, castanhas): máximo 0.5
-   - Vegetais: máximo 2.0
+   ⚠️ QUANTIDADES REALISTAS E PRÁTICAS (PENSE COMO NUTRICIONISTA):
+
+   🍗 PROTEÍNAS (portions mínimas e máximas realistas):
+   - Frango, Carne, Peixe: quantity entre 1.0 e 2.5 (100g a 250g)
+   - Ovos: quantity entre 2.0 e 4.0 (200g a 400g = 3-6 ovos)
+   - Atum em lata: quantity entre 0.8 e 2.0 (80g a 200g)
+   - Iogurte: quantity entre 1.5 e 2.5 (150g a 250g)
+   - Queijo cottage: quantity entre 1.0 e 2.0 (100g a 200g)
+
+   🍚 CARBOIDRATOS (portions mínimas e máximas realistas):
+   - Arroz, Macarrão: quantity entre 0.5 e 2.0 (50g a 200g cru)
+   - Batata doce/inglesa: quantity entre 1.5 e 3.0 (150g a 300g)
+   - Aveia: quantity entre 0.5 e 1.0 (50g a 100g)
+   - Pão integral: quantity entre 0.5 e 1.5 (50g a 150g)
+   - Banana: quantity entre 1.0 e 2.0 (100g a 200g = 1-2 bananas médias)
+   - Frutas em geral: quantity entre 1.0 e 2.5 (100g a 250g)
+
+   🥑 GORDURAS (portions mínimas e máximas realistas):
+   - Azeite: quantity entre 0.1 e 0.3 (10ml a 30ml = 1-2 colheres)
+   - Pasta de amendoim: quantity entre 0.2 e 0.5 (20g a 50g = 1-2 colheres)
+   - Castanhas, Amêndoas: quantity entre 0.2 e 0.5 (20g a 50g = 1 punhado)
+   - Abacate: quantity entre 0.5 e 1.5 (50g a 150g = meio a 1 abacate)
+
+   🥦 VEGETAIS (portions mínimas e máximas realistas):
+   - Brócolis, Couve-flor, Cenoura: quantity entre 1.0 e 2.5 (100g a 250g)
+   - Saladas verdes: quantity entre 0.5 e 2.0 (50g a 200g)
+   - Tomate: quantity entre 1.0 e 2.0 (100g a 200g)
+
+   ❌ NUNCA USE QUANTIDADES ABSURDAS:
+   - ❌ ERRADO: 0.1 de banana (10g) → Use no mínimo 1.0 (100g = 1 banana)
+   - ❌ ERRADO: 0.05 de pasta de amendoim (5g) → Use no mínimo 0.2 (20g = 1 colher)
+   - ❌ ERRADO: 0.2 de frango (20g) → Use no mínimo 1.0 (100g)
+   - ❌ ERRADO: 5.0 de arroz (500g cru) → Use no máximo 2.0 (200g cru)
+
+   ✅ PENSE SEMPRE: "Esta quantidade faz sentido na vida real?"
+
+   📋 EXEMPLOS DE REFEIÇÕES REALISTAS:
+
+   ✅ CORRETO - Café da manhã realista:
+   - Ovos: quantity 3.0 (300g = 5 ovos grandes)
+   - Aveia: quantity 0.6 (60g = 6 colheres)
+   - Banana: quantity 1.0 (100g = 1 banana média)
+   → Faz sentido! ✓
+
+   ✅ CORRETO - Pós-treino realista:
+   - Frango: quantity 1.5 (150g)
+   - Arroz: quantity 1.0 (100g cru = 300g cozido)
+   - Brócolis: quantity 1.5 (150g)
+   → Faz sentido! ✓
+
+   ❌ ERRADO - Refeição absurda:
+   - Frango: quantity 0.3 (30g) → Muito pouco!
+   - Banana: quantity 0.2 (20g) → Isso é 1/5 de banana!
+   - Pasta amendoim: quantity 0.03 (3g) → Impossível medir!
+   → Não faz sentido! ✗
+
+   🎯 REGRA DE OURO: Se você não conseguiria medir/comer essa quantidade na vida real, NÃO USE!
 
 4. VALIDAÇÃO MATEMÁTICA OBRIGATÓRIA:
    ⚠️ ANTES DE RESPONDER, CALCULE A SOMA TOTAL DE TODOS OS ALIMENTOS DE TODAS AS REFEIÇÕES:
@@ -378,6 +430,13 @@ REGRAS OBRIGATÓRIAS:
 6. Varie as fontes de proteína, carboidrato e gordura em cada refeição
 7. Adapte conforme o estilo: low carb, flexível, rica em proteína, etc.
 
+⚠️ QUANTIDADES REALISTAS (CRÍTICO):
+8. NUNCA use quantities absurdas (ex: 0.1 de banana, 0.03 de pasta amendoim)
+9. Banana: mínimo 1.0 (1 banana), Pasta amendoim: mínimo 0.2 (1 colher)
+10. Frango/Carne: mínimo 1.0 (100g), Ovos: mínimo 2.0 (3-4 ovos)
+11. PENSE: "Eu conseguiria medir/comer isso na vida real?" Se não, AJUSTE!
+12. Priorize quantities que façam sentido prático e nutricional
+
 Timestamp: ${Date.now()} - Use este número para garantir variação!`
       },
       { role: 'user', content: prompt }
@@ -452,6 +511,39 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
       }
 
       console.log(`🍽️ Validating ${result.meals.length} meals...`);
+
+      // Validar quantities realistas
+      let hasUnrealisticQuantities = false;
+      for (const meal of result.meals) {
+        for (const food of meal.foods || []) {
+          const foodData = allFoods.find(f => f.id === food.foodId);
+          if (foodData && food.quantity < 0.1) {
+            console.warn(`⚠️ Unrealistic quantity: ${foodData.name} = ${food.quantity} (too small!)`);
+            hasUnrealisticQuantities = true;
+          }
+          // Validações específicas por tipo de alimento
+          if (foodData) {
+            const name = foodData.name.toLowerCase();
+            if ((name.includes('frango') || name.includes('carne') || name.includes('peixe')) && food.quantity < 0.8) {
+              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.8)`);
+              hasUnrealisticQuantities = true;
+            }
+            if ((name.includes('banana') || name.includes('maçã')) && food.quantity < 0.8) {
+              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.8 = 1 fruta)`);
+              hasUnrealisticQuantities = true;
+            }
+            if (name.includes('pasta') && food.quantity < 0.15) {
+              console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.15)`);
+              hasUnrealisticQuantities = true;
+            }
+          }
+        }
+      }
+
+      if (hasUnrealisticQuantities) {
+        console.warn('⚠️ Found unrealistic quantities, retrying...');
+        continue;
+      }
 
       let totalP = 0, totalC = 0, totalF = 0, totalKcal = 0;
 
