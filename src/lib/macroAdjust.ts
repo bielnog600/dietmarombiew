@@ -63,7 +63,7 @@ export async function adjustMacrosWithStrategy(
     let lastCarbsDiff = 0;
     let lastFatsDiff = 0;
 
-    for (let iteration = 0; iteration < 150; iteration++) {
+    for (let iteration = 0; iteration < 200; iteration++) {
       let currentProtein = 0;
       let currentCarbs = 0;
       let currentFats = 0;
@@ -88,11 +88,17 @@ export async function adjustMacrosWithStrategy(
         break;
       }
 
-      const proteinFoods = mealFoods.filter(mf => (mf.food.protein / mf.food.portion_size) > 0.05);
-      const carbsFoods = mealFoods.filter(mf => (mf.food.carbs / mf.food.portion_size) > 0.05);
+      const proteinFoods = mealFoods.filter(mf => (mf.food.protein / mf.food.portion_size) > 0.15);
+      const carbsFoods = mealFoods.filter(mf => (mf.food.carbs / mf.food.portion_size) > 0.15);
       const fatsFoods = mealFoods.filter(mf => (mf.food.fats / mf.food.portion_size) > 0.05);
 
-      if (Math.abs(proteinDiff) > 2 && proteinFoods.length > 0) {
+      const priorityMacro = Math.max(
+        Math.abs(proteinDiff),
+        Math.abs(carbsDiff),
+        Math.abs(fatsDiff) * 2
+      );
+
+      if (priorityMacro === Math.abs(proteinDiff) && proteinFoods.length > 0) {
         const adjustmentPerFood = -proteinDiff / proteinFoods.length;
         proteinFoods.forEach(mf => {
           const proteinPerGram = mf.food.protein / mf.food.portion_size;
@@ -103,7 +109,7 @@ export async function adjustMacrosWithStrategy(
             portions[mf.id] = Math.round(newGrams);
           }
         });
-      } else if (Math.abs(carbsDiff) > 2 && carbsFoods.length > 0) {
+      } else if (priorityMacro === Math.abs(carbsDiff) && carbsFoods.length > 0) {
         const adjustmentPerFood = -carbsDiff / carbsFoods.length;
         carbsFoods.forEach(mf => {
           const carbsPerGram = mf.food.carbs / mf.food.portion_size;
@@ -114,11 +120,11 @@ export async function adjustMacrosWithStrategy(
             portions[mf.id] = Math.round(newGrams);
           }
         });
-      } else if (Math.abs(fatsDiff) > 1 && fatsFoods.length > 0) {
+      } else if (fatsFoods.length > 0) {
         const adjustmentPerFood = -fatsDiff / fatsFoods.length;
         fatsFoods.forEach(mf => {
           const fatsPerGram = mf.food.fats / mf.food.portion_size;
-          const gramsAdjustment = (adjustmentPerFood / fatsPerGram) * 0.5;
+          const gramsAdjustment = (adjustmentPerFood / fatsPerGram) * 0.3;
           const currentGrams = portions[mf.id];
           const newGrams = currentGrams + gramsAdjustment;
           if (newGrams >= 30) {
@@ -130,24 +136,25 @@ export async function adjustMacrosWithStrategy(
       }
     }
 
-    if (lastProteinDiff < -3) {
-      const neededProtein = Math.abs(lastProteinDiff);
-      const gramsNeeded = (neededProtein / MACRO_RICH_FOODS.protein.protein) * MACRO_RICH_FOODS.protein.portion_size;
-      await addFoodToMeal(meal.id, diet.user_id, MACRO_RICH_FOODS.protein, Math.max(50, Math.round(gramsNeeded)));
-      foodsAdded = true;
+    const missingMacros: Array<{ type: 'protein' | 'carbs' | 'fats'; amount: number }> = [];
+
+    if (lastProteinDiff < -5) {
+      missingMacros.push({ type: 'protein', amount: Math.abs(lastProteinDiff) });
+    }
+    if (lastCarbsDiff < -5) {
+      missingMacros.push({ type: 'carbs', amount: Math.abs(lastCarbsDiff) });
+    }
+    if (lastFatsDiff < -3) {
+      missingMacros.push({ type: 'fats', amount: Math.abs(lastFatsDiff) });
     }
 
-    if (lastCarbsDiff < -3) {
-      const neededCarbs = Math.abs(lastCarbsDiff);
-      const gramsNeeded = (neededCarbs / MACRO_RICH_FOODS.carbs.carbs) * MACRO_RICH_FOODS.carbs.portion_size;
-      await addFoodToMeal(meal.id, diet.user_id, MACRO_RICH_FOODS.carbs, Math.max(50, Math.round(gramsNeeded)));
-      foodsAdded = true;
-    }
+    for (const missing of missingMacros) {
+      const foodData = MACRO_RICH_FOODS[missing.type];
+      const macroContent = foodData[missing.type];
+      const gramsNeeded = (missing.amount / macroContent) * foodData.portion_size;
+      const quantity = Math.max(50, Math.round(gramsNeeded));
 
-    if (lastFatsDiff < -2) {
-      const neededFats = Math.abs(lastFatsDiff);
-      const gramsNeeded = (neededFats / MACRO_RICH_FOODS.fats.fats) * MACRO_RICH_FOODS.fats.portion_size;
-      await addFoodToMeal(meal.id, diet.user_id, MACRO_RICH_FOODS.fats, Math.max(10, Math.round(gramsNeeded)));
+      await addOrUpdateFoodInMeal(meal.id, foodData, quantity);
       foodsAdded = true;
     }
   }
@@ -155,9 +162,8 @@ export async function adjustMacrosWithStrategy(
   return { portions, foodsAdded };
 }
 
-async function addFoodToMeal(
+async function addOrUpdateFoodInMeal(
   mealId: string,
-  userId: string,
   foodData: MacroRichFood,
   quantity: number
 ): Promise<void> {
@@ -193,19 +199,35 @@ async function addFoodToMeal(
       foodId = existingFood.id;
     }
 
+    const { data: existingMealFood } = await supabase
+      .from('meal_foods')
+      .select('id, quantity')
+      .eq('meal_id', mealId)
+      .eq('food_id', foodId)
+      .maybeSingle();
+
     const normalizedQuantity = quantity / foodData.portion_size;
 
-    const { error: mealFoodError } = await supabase
-      .from('meal_foods')
-      .insert({
-        meal_id: mealId,
-        food_id: foodId,
-        quantity: normalizedQuantity
-      });
+    if (existingMealFood) {
+      const { error: updateError } = await supabase
+        .from('meal_foods')
+        .update({ quantity: existingMealFood.quantity + normalizedQuantity })
+        .eq('id', existingMealFood.id);
 
-    if (mealFoodError) throw mealFoodError;
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from('meal_foods')
+        .insert({
+          meal_id: mealId,
+          food_id: foodId,
+          quantity: normalizedQuantity
+        });
+
+      if (insertError) throw insertError;
+    }
   } catch (err) {
-    console.error('Error adding food to meal:', err);
+    console.error('Error adding/updating food in meal:', err);
     throw err;
   }
 }
