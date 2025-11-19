@@ -354,6 +354,79 @@ Refaça o plano corrigindo as quantities. RESPONDA APENAS COM O JSON CORRIGIDO!`
       }
     }
 
+    // 🔧 AJUSTE MATEMÁTICO AUTOMÁTICO
+    console.log('🔧 Applying mathematical adjustment to match targets...');
+
+    let totalP = 0, totalC = 0, totalF = 0, totalKcal = 0;
+    for (const meal of result.meals) {
+      for (const food of meal.foods || []) {
+        const foodData = allFoods.find(f => f.id === food.foodId);
+        if (foodData) {
+          totalP += foodData.protein * food.quantity;
+          totalC += foodData.carbs * food.quantity;
+          totalF += foodData.fats * food.quantity;
+          totalKcal += foodData.calories * food.quantity;
+        }
+      }
+    }
+
+    const proteinDiff = targetProtein - totalP;
+    const carbsDiff = targetCarbs - totalC;
+    const fatsDiff = targetFats - totalF;
+
+    console.log(`📊 Before adjustment: ${totalP.toFixed(1)}g P, ${totalC.toFixed(1)}g C, ${totalF.toFixed(1)}g F`);
+    console.log(`🎯 Need to adjust: P ${proteinDiff > 0 ? '+' : ''}${proteinDiff.toFixed(1)}g, C ${carbsDiff > 0 ? '+' : ''}${carbsDiff.toFixed(1)}g, F ${fatsDiff > 0 ? '+' : ''}${fatsDiff.toFixed(1)}g`);
+
+    // Ajustar proteína
+    if (Math.abs(proteinDiff) > 2) {
+      const proteinFood = allFoods.find(f => f.protein > 20 && f.carbs < 5); // Frango, peixe, etc
+      if (proteinFood) {
+        const adjustMeal = result.meals.find(m => m.name.toLowerCase().includes('jantar') || m.name.toLowerCase().includes('almoço'));
+        if (adjustMeal) {
+          const existingFood = adjustMeal.foods.find(f => f.foodId === proteinFood.id);
+          if (existingFood) {
+            const adjustment = proteinDiff / proteinFood.protein;
+            existingFood.quantity += adjustment;
+            console.log(`  ✓ Adjusted ${proteinFood.name} by ${adjustment.toFixed(2)} portions in ${adjustMeal.name}`);
+          }
+        }
+      }
+    }
+
+    // Ajustar carboidratos
+    if (Math.abs(carbsDiff) > 2) {
+      const carbFood = allFoods.find(f => f.carbs > 20 && f.protein < 5); // Arroz, batata, etc
+      if (carbFood) {
+        const adjustMeal = result.meals.find(m => m.name.toLowerCase().includes('pré') || m.name.toLowerCase().includes('pós'));
+        if (adjustMeal) {
+          const existingFood = adjustMeal.foods.find(f => f.foodId === carbFood.id);
+          if (existingFood) {
+            const adjustment = carbsDiff / carbFood.carbs;
+            existingFood.quantity += adjustment;
+            console.log(`  ✓ Adjusted ${carbFood.name} by ${adjustment.toFixed(2)} portions in ${adjustMeal.name}`);
+          }
+        }
+      }
+    }
+
+    // Ajustar gorduras
+    if (Math.abs(fatsDiff) > 2) {
+      const fatFood = allFoods.find(f => f.fats > 10 && f.protein < 5 && f.carbs < 5); // Azeite, castanhas
+      if (fatFood) {
+        const adjustMeal = result.meals[0]; // Primeira refeição
+        if (adjustMeal) {
+          const existingFood = adjustMeal.foods.find(f => f.foodId === fatFood.id);
+          if (existingFood) {
+            const adjustment = fatsDiff / fatFood.fats;
+            existingFood.quantity += adjustment;
+            console.log(`  ✓ Adjusted ${fatFood.name} by ${adjustment.toFixed(2)} portions in ${adjustMeal.name}`);
+          }
+        }
+      }
+    }
+
+    console.log('✅ Mathematical adjustment complete!');
+
     await supabase.from('meal_foods').delete().eq('meal_id',
       supabase.from('meals').select('id').eq('diet_id', dietId)
     );
