@@ -17,16 +17,18 @@ const MACRO_RICH_FOODS: Record<string, MacroRichFood> = {
 
 const MEAL_DISTRIBUTIONS = {
   cutting: [
-    { protein: 0.30, carbs: 0.175, fats: 0.225 },
-    { protein: 0.15, carbs: 0.225, fats: 0.075 },
-    { protein: 0.25, carbs: 0.325, fats: 0.075 },
-    { protein: 0.20, carbs: 0.125, fats: 0.225 }
+    { protein: 0.30, carbs: 0.20, fats: 0.20 },
+    { protein: 0.15, carbs: 0.25, fats: 0.10 },
+    { protein: 0.25, carbs: 0.35, fats: 0.08 },
+    { protein: 0.20, carbs: 0.15, fats: 0.25 },
+    { protein: 0.10, carbs: 0.05, fats: 0.37 }
   ],
   bulking: [
-    { protein: 0.30, carbs: 0.175, fats: 0.225 },
-    { protein: 0.15, carbs: 0.225, fats: 0.075 },
-    { protein: 0.25, carbs: 0.325, fats: 0.075 },
-    { protein: 0.20, carbs: 0.125, fats: 0.225 }
+    { protein: 0.25, carbs: 0.20, fats: 0.20 },
+    { protein: 0.20, carbs: 0.25, fats: 0.15 },
+    { protein: 0.25, carbs: 0.30, fats: 0.15 },
+    { protein: 0.20, carbs: 0.20, fats: 0.30 },
+    { protein: 0.10, carbs: 0.05, fats: 0.20 }
   ]
 };
 
@@ -38,9 +40,9 @@ export async function adjustMacrosWithStrategy(
     return { portions: {}, foodsAdded: false };
   }
 
-  const targetProtein = diet.macros?.protein || Math.round((diet.calories * 0.3) / 4);
-  const targetCarbs = diet.macros?.carbs || Math.round((diet.calories * 0.45) / 4);
-  const targetFats = diet.macros?.fats || Math.round((diet.calories * 0.25) / 9);
+  const targetProtein = diet.macros?.protein || Math.round((diet.calories * 0.4) / 4);
+  const targetCarbs = diet.macros?.carbs || Math.round((diet.calories * 0.3) / 4);
+  const targetFats = diet.macros?.fats || Math.round((diet.calories * 0.3) / 9);
 
   const distribution = MEAL_DISTRIBUTIONS[strategy];
   const portions: Record<string, number> = {};
