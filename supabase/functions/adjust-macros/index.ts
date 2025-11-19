@@ -238,79 +238,118 @@ Você PRECISA adicionar mais alimentos ou aumentar as quantities até somar 178g
 
 RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
 
-    console.log('🤖 Calling OpenAI...');
+    console.log('🤖 Calling OpenAI with retry logic...');
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + openaiKey,
+    let result: any;
+    let attempts = 0;
+    const maxAttempts = 3;
+    const messages = [
+      {
+        role: 'system',
+        content: 'Você é um nutricionista expert em cálculos de macronutrientes. Responda APENAS com JSON válido, sem markdown, sem explicações. Calcule EXATAMENTE as quantities para atingir os macros especificados.'
       },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: 'Você é um nutricionista expert. Responda APENAS com JSON válido, sem markdown, sem explicações. Crie planos alimentares completos, equilibrados e variados.'
-          },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 3000,
-      }),
-    });
+      { role: 'user', content: prompt }
+    ];
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`);
-    }
+    while (attempts < maxAttempts) {
+      attempts++;
+      console.log(`🔄 Attempt ${attempts}/${maxAttempts}...`);
 
-    const openaiData = await openaiResponse.json();
-    const content = openaiData.choices[0].message.content.trim();
+      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + openaiKey,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: messages,
+          temperature: 0.2,
+          max_tokens: 3000,
+        }),
+      });
 
-    console.log('📄 OpenAI response:', content);
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`);
+      }
 
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Invalid OpenAI response - no JSON found');
-    }
+      const openaiData = await openaiResponse.json();
+      const content = openaiData.choices[0].message.content.trim();
 
-    const result = JSON.parse(jsonMatch[0]);
+      console.log('📄 OpenAI response received');
 
-    if (!result.meals || !Array.isArray(result.meals)) {
-      throw new Error('Invalid response structure - missing meals array');
-    }
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.warn('⚠️ No JSON found in response, retrying...');
+        continue;
+      }
 
-    console.log(`🍽️ Creating ${result.meals.length} meals...`);
+      result = JSON.parse(jsonMatch[0]);
 
-    let totalP = 0, totalC = 0, totalF = 0, totalKcal = 0;
+      if (!result.meals || !Array.isArray(result.meals)) {
+        console.warn('⚠️ Invalid structure, retrying...');
+        continue;
+      }
 
-    for (const meal of result.meals) {
-      for (const food of meal.foods || []) {
-        const foodData = allFoods.find(f => f.id === food.foodId);
-        if (foodData) {
-          totalP += foodData.protein * food.quantity;
-          totalC += foodData.carbs * food.quantity;
-          totalF += foodData.fats * food.quantity;
-          totalKcal += foodData.calories * food.quantity;
+      console.log(`🍽️ Validating ${result.meals.length} meals...`);
+
+      let totalP = 0, totalC = 0, totalF = 0, totalKcal = 0;
+
+      for (const meal of result.meals) {
+        for (const food of meal.foods || []) {
+          const foodData = allFoods.find(f => f.id === food.foodId);
+          if (foodData) {
+            totalP += foodData.protein * food.quantity;
+            totalC += foodData.carbs * food.quantity;
+            totalF += foodData.fats * food.quantity;
+            totalKcal += foodData.calories * food.quantity;
+          }
         }
       }
+
+      console.log(`📊 Calculated: ${totalKcal.toFixed(0)} kcal | ${totalP.toFixed(1)}g P | ${totalC.toFixed(1)}g C | ${totalF.toFixed(1)}g F`);
+      console.log(`🎯 Target: ${targetCalories} kcal | ${targetProtein}g P | ${targetCarbs}g C | ${targetFats}g F`);
+
+      const proteinDiff = totalP - targetProtein;
+      const carbsDiff = totalC - targetCarbs;
+      const fatsDiff = totalF - targetFats;
+      const caloriesDiff = totalKcal - targetCalories;
+
+      if (Math.abs(proteinDiff) <= 8 && Math.abs(carbsDiff) <= 8 && Math.abs(fatsDiff) <= 8 && Math.abs(caloriesDiff) <= 50) {
+        console.log('✅ Macros validated successfully!');
+        break;
+      }
+
+      console.warn(`⚠️ Attempt ${attempts} failed. Deviations: P ${proteinDiff > 0 ? '+' : ''}${proteinDiff.toFixed(1)}g, C ${carbsDiff > 0 ? '+' : ''}${carbsDiff.toFixed(1)}g, F ${fatsDiff > 0 ? '+' : ''}${fatsDiff.toFixed(1)}g`);
+
+      if (attempts < maxAttempts) {
+        messages.push({
+          role: 'assistant',
+          content: JSON.stringify(result)
+        });
+        messages.push({
+          role: 'user',
+          content: `❌ ERRADO! Seus macros totais: ${totalP.toFixed(1)}g P, ${totalC.toFixed(1)}g C, ${totalF.toFixed(1)}g F, ${totalKcal.toFixed(0)} kcal
+
+🎯 Meta obrigatória: ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g F, ${targetCalories} kcal
+
+📊 DIFERENÇA:
+- Proteína: ${proteinDiff > 0 ? 'EXCESSO de ' : 'FALTA '}${Math.abs(proteinDiff).toFixed(1)}g
+- Carboidratos: ${carbsDiff > 0 ? 'EXCESSO de ' : 'FALTA '}${Math.abs(carbsDiff).toFixed(1)}g
+- Gorduras: ${fatsDiff > 0 ? 'EXCESSO de ' : 'FALTA '}${Math.abs(fatsDiff).toFixed(1)}g
+
+🔧 CORREÇÃO NECESSÁRIA:
+${proteinDiff < 0 ? `- AUMENTE proteínas em ${Math.abs(proteinDiff).toFixed(1)}g (adicione mais frango/ovo ou aumente quantities)` : `- REDUZA proteínas em ${proteinDiff.toFixed(1)}g`}
+${carbsDiff < 0 ? `- AUMENTE carboidratos em ${Math.abs(carbsDiff).toFixed(1)}g (adicione mais arroz/batata ou aumente quantities)` : `- REDUZA carboidratos em ${carbsDiff.toFixed(1)}g`}
+${fatsDiff < 0 ? `- AUMENTE gorduras em ${Math.abs(fatsDiff).toFixed(1)}g (adicione mais azeite/castanhas)` : `- REDUZA gorduras em ${fatsDiff.toFixed(1)}g`}
+
+Refaça o plano corrigindo as quantities. RESPONDA APENAS COM O JSON CORRIGIDO!`
+        });
+      } else {
+        throw new Error(`Failed to generate correct macros after ${maxAttempts} attempts. Last result: Protein: ${totalP.toFixed(1)}g (target: ${targetProtein}g), Carbs: ${totalC.toFixed(1)}g (target: ${targetCarbs}g), Fats: ${totalF.toFixed(1)}g (target: ${targetFats}g)`);
+      }
     }
-
-    console.log(`📊 Calculated totals: ${totalKcal.toFixed(0)} kcal | ${totalP.toFixed(1)}g P | ${totalC.toFixed(1)}g C | ${totalF.toFixed(1)}g F`);
-    console.log(`🎯 Target: ${targetCalories} kcal | ${targetProtein}g P | ${targetCarbs}g C | ${targetFats}g F`);
-
-    const proteinDiff = Math.abs(totalP - targetProtein);
-    const carbsDiff = Math.abs(totalC - targetCarbs);
-    const fatsDiff = Math.abs(totalF - targetFats);
-    const caloriesDiff = Math.abs(totalKcal - targetCalories);
-
-    if (proteinDiff > 8 || carbsDiff > 8 || fatsDiff > 8 || caloriesDiff > 50) {
-      console.warn(`⚠️ Macros deviation detected! P: ${proteinDiff.toFixed(1)}g, C: ${carbsDiff.toFixed(1)}g, F: ${fatsDiff.toFixed(1)}g, Kcal: ${caloriesDiff.toFixed(0)}`);
-      throw new Error(`AI generated plan with incorrect macros. Protein: ${totalP.toFixed(1)}g (target: ${targetProtein}g), Carbs: ${totalC.toFixed(1)}g (target: ${targetCarbs}g), Fats: ${totalF.toFixed(1)}g (target: ${targetFats}g)`);
-    }
-
-    console.log('✅ Macros validated successfully!');
 
     await supabase.from('meal_foods').delete().eq('meal_id',
       supabase.from('meals').select('id').eq('diet_id', dietId)
