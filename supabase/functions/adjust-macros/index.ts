@@ -36,68 +36,119 @@ Deno.serve(async (req: Request) => {
 
     const meals = diet.meals;
 
-    const distributions = strategy === 'cutting'
-      ? [
-          { pct: 0.30, p: Math.round(targetProtein * 0.30), c: Math.round(targetCarbs * 0.20), f: Math.round(targetFats * 0.20) },
-          { pct: 0.15, p: Math.round(targetProtein * 0.15), c: Math.round(targetCarbs * 0.25), f: Math.round(targetFats * 0.10) },
-          { pct: 0.25, p: Math.round(targetProtein * 0.25), c: Math.round(targetCarbs * 0.35), f: Math.round(targetFats * 0.08) },
-          { pct: 0.20, p: Math.round(targetProtein * 0.20), c: Math.round(targetCarbs * 0.15), f: Math.round(targetFats * 0.25) },
-          { pct: 0.10, p: Math.round(targetProtein * 0.10), c: Math.round(targetCarbs * 0.05), f: Math.round(targetFats * 0.37) }
-        ]
-      : [
-          { pct: 0.25, p: Math.round(targetProtein * 0.25), c: Math.round(targetCarbs * 0.20), f: Math.round(targetFats * 0.20) },
-          { pct: 0.20, p: Math.round(targetProtein * 0.20), c: Math.round(targetCarbs * 0.25), f: Math.round(targetFats * 0.15) },
-          { pct: 0.25, p: Math.round(targetProtein * 0.25), c: Math.round(targetCarbs * 0.30), f: Math.round(targetFats * 0.15) },
-          { pct: 0.20, p: Math.round(targetProtein * 0.20), c: Math.round(targetCarbs * 0.20), f: Math.round(targetFats * 0.30) },
-          { pct: 0.10, p: Math.round(targetProtein * 0.10), c: Math.round(targetCarbs * 0.05), f: Math.round(targetFats * 0.20) }
-        ];
+    const numMeals = meals.length;
 
+    const distributionsCutting = [
+      { name: 'Café da manhã', kcal: 280, p: 0.30, c: 0.20, f: 0.19 },
+      { name: 'Pré-treino', kcal: 260, p: 0.15, c: 0.25, f: 0.11 },
+      { name: 'Pós-treino', kcal: 350, p: 0.25, c: 0.35, f: 0.08 },
+      { name: 'Jantar', kcal: 300, p: 0.20, c: 0.15, f: 0.26 },
+      { name: 'Ceia', kcal: 210, p: 0.10, c: 0.05, f: 0.36 }
+    ];
+
+    const distributionsBulking = [
+      { name: 'Café da manhã', kcal: 280, p: 0.25, c: 0.20, f: 0.20 },
+      { name: 'Pré-treino', kcal: 260, p: 0.20, c: 0.25, f: 0.15 },
+      { name: 'Pós-treino', kcal: 350, p: 0.25, c: 0.30, f: 0.15 },
+      { name: 'Jantar', kcal: 300, p: 0.20, c: 0.20, f: 0.30 },
+      { name: 'Ceia', kcal: 210, p: 0.10, c: 0.05, f: 0.20 }
+    ];
+
+    const baseDistributions = strategy === 'cutting' ? distributionsCutting : distributionsBulking;
+
+    const distributions = meals.map((meal: any, idx: number) => {
+      const base = baseDistributions[idx] || baseDistributions[0];
+      return {
+        name: meal.name,
+        p: Math.round(targetProtein * base.p),
+        c: Math.round(targetCarbs * base.c),
+        f: Math.round(targetFats * base.f),
+        kcal: Math.round(targetCalories * (base.kcal / 1400))
+      };
+    });
+
+    let currentP = 0, currentC = 0, currentF = 0;
     const mealsText = meals.map((meal: any, idx: number) => {
-      const target = distributions[idx] || distributions[0];
+      const target = distributions[idx];
+      currentP += target.p;
+      currentC += target.c;
+      currentF += target.f;
+
       const foodsText = meal.meal_foods.map((mf: any) => {
         const grams = Math.round(mf.quantity * mf.food.portion_size);
         const mult = grams / mf.food.portion_size;
-        return `  ID: ${mf.id}
-  Alimento: ${mf.food.name}
-  Atual: ${grams}g = ${(mf.food.protein * mult).toFixed(1)}g P, ${(mf.food.carbs * mult).toFixed(1)}g C, ${(mf.food.fats * mult).toFixed(1)}g G
-  Info: A cada ${mf.food.portion_size}g = ${mf.food.protein}g P, ${mf.food.carbs}g C, ${mf.food.fats}g G`;
-      }).join('\n\n');
-      return `━━━ ${meal.name} ━━━
-META DESTA REFEIÇÃO: ${target.p}g P, ${target.c}g C, ${target.f}g G
+        const pPerGram = mf.food.protein / mf.food.portion_size;
+        const cPerGram = mf.food.carbs / mf.food.portion_size;
+        const fPerGram = mf.food.fats / mf.food.portion_size;
 
-ALIMENTOS:
+        return `  [ID: ${mf.id}] ${mf.food.name}
+  Atual: ${grams}g → ${(mf.food.protein * mult).toFixed(1)}g P, ${(mf.food.carbs * mult).toFixed(1)}g C, ${(mf.food.fats * mult).toFixed(1)}g G
+  Por grama: ${pPerGram.toFixed(2)}g P, ${cPerGram.toFixed(2)}g C, ${fPerGram.toFixed(2)}g G por 1g
+  Base: ${mf.food.portion_size}g = ${mf.food.protein}g P, ${mf.food.carbs}g C, ${mf.food.fats}g G`;
+      }).join('\n\n');
+
+      return `━━━━ REFEIÇÃO ${idx + 1}: ${meal.name} ━━━━
+🎯 META: ~${target.kcal} kcal | ${target.p}g P | ${target.c}g C | ${target.f}g G
+
 ${foodsText}`;
     }).join('\n\n');
 
-    const prompt = `Você é um nutricionista expert. Ajuste as quantidades dos alimentos para bater EXATAMENTE as metas.
+    const adjustP = targetProtein - currentP;
+    const adjustC = targetCarbs - currentC;
+    const adjustF = targetFats - currentF;
 
-📊 META DIÁRIA TOTAL:
+    const prompt = `Você é um nutricionista calculando porções exatas.
+
+📊 META DIÁRIA TOTAL (${strategy.toUpperCase()}):
+- Calorias: ${targetCalories} kcal
 - Proteína: ${targetProtein}g
 - Carboidratos: ${targetCarbs}g
 - Gorduras: ${targetFats}g
-- Calorias: ${targetCalories} kcal
 
-📋 ESTRATÉGIA: ${strategy.toUpperCase()}
+📋 EXEMPLO DE DISTRIBUIÇÃO IDEAL (1400 kcal / Cutting):
+┌────────────────┬─────┬──────┬───────┬─────────┐
+│ Refeição       │kcal │ Prot │ Carbs │ Gordura │
+├────────────────┼─────┼──────┼───────┼─────────┤
+│ Café da manhã │ 280 │ 42g  │ 21g   │ 9g      │
+│ Pré-treino     │ 260 │ 21g  │ 26g   │ 5g      │
+│ Pós-treino     │ 350 │ 35g  │ 37g   │ 3-4g    │
+│ Jantar         │ 300 │ 28g  │ 16g   │ 12g     │
+│ Ceia           │ 210 │14-21g│ 0-5g  │ 9-14g   │
+└────────────────┴─────┴──────┴───────┴─────────┘
+TOTAL: 1400 kcal | 140g P | 105g C | 47g G
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${mealsText}
 
-⚠️ REGRAS OBRIGATÓRIAS:
-1. Calcule quantidades em gramas usando a proporção dos macros por porção
-2. Exemplo: Se precisa 50g de proteína e frango tem 31g P a cada 100g, use aproximadamente 160g de frango
-3. Use MÚLTIPLOS DE 5g (150g, 155g, 160g, etc)
-4. Quantidade mínima: 30g
-5. A SOMA de cada macro em TODAS as refeições deve dar EXATAMENTE a meta total (±3g)
-6. Priorize bater CARBOIDRATOS primeiro, depois PROTEÍNA, depois GORDURA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 RESPONDA APENAS JSON (sem markdown):
+⚠️ INSTRUÇÕES PARA CÁLCULO:
+
+1. CALCULE cada quantidade usando regra de três:
+   Exemplo: Precisa 42g proteína e frango tem 0.31g P por 1g
+   → 42 ÷ 0.31 = 135g de frango → arredonde para 135g (múltiplo de 5)
+
+2. AJUSTE FINAL necessário:
+   - Proteína: ${adjustP > 0 ? '+' : ''}${adjustP}g (${adjustP === 0 ? '✓ perfeito' : 'ajustar na última refeição'})
+   - Carbos: ${adjustC > 0 ? '+' : ''}${adjustC}g (${adjustC === 0 ? '✓ perfeito' : 'ajustar na última refeição'})
+   - Gordura: ${adjustF > 0 ? '+' : ''}${adjustF}g (${adjustF === 0 ? '✓ perfeito' : 'ajustar na última refeição'})
+
+3. REGRAS:
+   ✓ Múltiplos de 5g (135g, 140g, 145g...)
+   ✓ Mínimo: 30g
+   ✓ SOMA TOTAL deve ser: ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g G
+   ✓ Margem: ±2g por macro
+
+4. RESPONDA APENAS JSON (sem markdown, sem explicações):
 {
   "portions": {
-    "meal_food_id_1": 150,
-    "meal_food_id_2": 200
+    "meal_food_id": 135,
+    "meal_food_id": 200
   }
 }
 
-IMPORTANTE: As quantidades devem fazer a SOMA TOTAL bater exatamente ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g G`;
+⚡ CALCULE COM PRECISÃO MATEMÁTICA!`;
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
