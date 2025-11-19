@@ -907,30 +907,6 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               <X size={24} />
             </button>
           </div>
-
-          {!adjustingQuantities && (
-            <div className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg border transition-all ${
-              replicateToAllDays
-                ? 'bg-[#f8c045]/10 border-[#f8c045]/50'
-                : 'bg-[rgb(23,23,23)] border-[#f8c045]/20'
-            }`}>
-              <input
-                type="checkbox"
-                id="replicateToAllDays"
-                checked={replicateToAllDays}
-                onChange={(e) => setReplicateToAllDays(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-600 text-[#f8c045] focus:ring-[#f8c045] bg-[rgb(23,23,23)] cursor-pointer"
-              />
-              <label htmlFor="replicateToAllDays" className="text-sm text-gray-300 cursor-pointer select-none">
-                Replicar mesmos alimentos para <span className="font-bold text-[#f8c045]">todos os dias</span> (respeitando metas individuais)
-              </label>
-              {replicateToAllDays && (
-                <span className="text-xs bg-[#f8c045] text-[rgb(23,23,23)] px-2 py-0.5 rounded-full font-bold">
-                  7 DIAS
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="mb-4">
@@ -1405,16 +1381,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                 Selecione como deseja distribuir os macronutrientes ao longo das refeições:
               </p>
 
-              {replicateToAllDays && (
-                <div className="mb-4 p-3 bg-[#f8c045]/20 border border-[#f8c045] rounded-lg">
-                  <p className="text-[#f8c045] text-sm font-semibold flex items-center gap-2">
-                    <span className="text-lg">⚠️</span>
-                    Esta ação será aplicada em TODOS OS 7 DIAS da semana, respeitando as metas individuais de cada dia!
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-3 mb-6">
+              <div className="space-y-3 mb-4">
                 <button
                   onClick={() => handleAutoAdjustQuantities('cutting')}
                   disabled={generatingDiet}
@@ -1440,6 +1407,41 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                     Distribuição otimizada para ganho de massa muscular
                   </div>
                 </button>
+              </div>
+
+              <div className={`mb-4 p-4 rounded-lg border transition-all ${
+                replicateToAllDays
+                  ? 'bg-[#f8c045]/10 border-[#f8c045]/50'
+                  : 'bg-gray-800 border-gray-600'
+              }`}>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={replicateToAllDays}
+                    onChange={(e) => setReplicateToAllDays(e.target.checked)}
+                    disabled={generatingDiet}
+                    className="w-5 h-5 rounded border-gray-500 text-[#f8c045] focus:ring-[#f8c045] bg-[rgb(23,23,23)] cursor-pointer disabled:opacity-50"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-white flex items-center gap-2">
+                      Aplicar em todos os dias da semana
+                      {replicateToAllDays && (
+                        <span className="text-xs bg-[#f8c045] text-[rgb(23,23,23)] px-2 py-0.5 rounded-full font-bold">
+                          7 DIAS
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      Os mesmos alimentos serão distribuídos em todos os dias, respeitando as metas de calorias e macros de cada dia
+                    </div>
+                  </div>
+                </label>
+                {replicateToAllDays && (
+                  <div className="mt-3 p-2 bg-[#f8c045]/20 border border-[#f8c045]/50 rounded text-xs text-[#f8c045] flex items-start gap-2">
+                    <span>⚠️</span>
+                    <span>Esta ação modificará TODAS as dietas da semana (7 dias)</span>
+                  </div>
+                )}
               </div>
 
               <button
