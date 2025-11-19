@@ -135,26 +135,47 @@ ${foodsList}
    ❌ NÃO exagere nas quantidades (máximo 200g de proteína por refeição)
    ❌ NÃO coloque frango em todas as refeições
 
-3. CÁLCULO PRECISO DE QUANTIDADES:
+3. CÁLCULO MATEMÁTICO PRECISO DE QUANTIDADES:
    ⚠️ ATENÇÃO: quantity é o MULTIPLICADOR da porção, não gramas!
 
-   Exemplo: Peito de frango tem portion_size = 100g
-   - Para 150g de frango → quantity = 1.5
-   - Para 200g de frango → quantity = 2.0
-   - Para 100g de frango → quantity = 1.0
+   🧮 FÓRMULA: Para cada alimento, calcule:
 
-   ⚠️ QUANTIDADE MÁXIMA por alimento:
-   - Proteínas: quantity máximo 2.5 (250g)
-   - Carboidratos: quantity máximo 2.0 (200g)
-   - Gorduras: quantity máximo 0.5 (50g)
-   - Vegetais: quantity máximo 1.5 (150g)
+   quantity = (gramas_desejadas) / (portion_size)
 
-4. BALANCEAMENTO OBRIGATÓRIO:
-   ⚠️ A SOMA TOTAL EXATA de TODAS as refeições DEVE SER:
-     • Proteína: ${targetProtein}g (±2g de margem aceitável)
-     • Carboidratos: ${targetCarbs}g (±2g de margem aceitável)
-     • Gorduras: ${targetFats}g (±2g de margem aceitável)
-     • Calorias: ${targetCalories} kcal (±15 kcal de margem aceitável)
+   Depois calcule os macros resultantes:
+   - Proteína = (protein × quantity)
+   - Carboidratos = (carbs × quantity)
+   - Gorduras = (fats × quantity)
+   - Calorias = (calories × quantity)
+
+   📊 EXEMPLO REAL:
+   Peito de frango: 31g P, 0g C, 3.6g G (165 kcal) por 100g
+   Se preciso de 42g de proteína:
+   → quantity = 42 / 31 = 1.35
+   → Resultado: 1.35 × 31 = 41.85g P ✓
+   → Calorias: 1.35 × 165 = 222 kcal
+
+   ⚠️ LIMITE MÁXIMO de quantity por tipo:
+   - Proteínas (frango, carne, peixe, ovo): máximo 2.5
+   - Carboidratos (arroz, batata, aveia): máximo 2.0
+   - Gorduras (azeite, castanhas): máximo 0.5
+   - Vegetais: máximo 2.0
+
+4. VALIDAÇÃO MATEMÁTICA OBRIGATÓRIA:
+   ⚠️ ANTES DE RESPONDER, CALCULE A SOMA TOTAL:
+
+   Soma Proteína = Σ (protein × quantity) de TODOS os alimentos
+   Soma Carbos = Σ (carbs × quantity) de TODOS os alimentos
+   Soma Gorduras = Σ (fats × quantity) de TODOS os alimentos
+   Soma Calorias = Σ (calories × quantity) de TODOS os alimentos
+
+   ✅ REGRAS CRÍTICAS:
+   • Soma Proteína DEVE estar entre ${targetProtein - 3}g e ${targetProtein + 3}g
+   • Soma Carbos DEVE estar entre ${targetCarbs - 3}g e ${targetCarbs + 3}g
+   • Soma Gorduras DEVE estar entre ${targetFats - 3}g e ${targetFats + 3}g
+   • Soma Calorias DEVE estar entre ${targetCalories - 20} e ${targetCalories + 20} kcal
+
+   ⚠️ Se a soma não estiver correta, AJUSTE as quantities até bater!
 
 5. ESTRUTURA DO JSON (sem markdown):
 {
@@ -179,10 +200,18 @@ ${foodsList}
 
 ⚡ PRIORIDADE MÁXIMA:
 1. Criar refeições COERENTES e REALISTAS (café da manhã com alimentos de café)
-2. Usar quantities CORRETAS (são multiplicadores, não gramas!)
-3. NÃO EXCEDER os limites de quantity por tipo de alimento
-4. Bater EXATAMENTE as macros totais (±2g)
-5. Seguir princípios nutricionais para ${strategy.toUpperCase()}
+2. CALCULAR matematicamente as quantities para bater os macros EXATOS
+3. VALIDAR: Some todos os macros antes de responder
+4. NÃO EXCEDER os limites de quantity por tipo de alimento
+5. A soma total DEVE estar dentro das margens: ±3g para macros, ±20 kcal
+
+📋 PASSO A PASSO OBRIGATÓRIO:
+1. Monte as refeições com alimentos coerentes
+2. Distribua os macros entre as refeições
+3. Calcule quantity = (macro_desejado / macro_do_alimento)
+4. SOME todos os macros: Σ(protein × quantity), Σ(carbs × quantity), Σ(fats × quantity)
+5. Se não bater, AJUSTE as quantities
+6. Só responda quando a soma total estiver correta!
 
 RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
 
@@ -230,6 +259,35 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
     }
 
     console.log(`🍽️ Creating ${result.meals.length} meals...`);
+
+    let totalP = 0, totalC = 0, totalF = 0, totalKcal = 0;
+
+    for (const meal of result.meals) {
+      for (const food of meal.foods || []) {
+        const foodData = allFoods.find(f => f.id === food.foodId);
+        if (foodData) {
+          totalP += foodData.protein * food.quantity;
+          totalC += foodData.carbs * food.quantity;
+          totalF += foodData.fats * food.quantity;
+          totalKcal += foodData.calories * food.quantity;
+        }
+      }
+    }
+
+    console.log(`📊 Calculated totals: ${totalKcal.toFixed(0)} kcal | ${totalP.toFixed(1)}g P | ${totalC.toFixed(1)}g C | ${totalF.toFixed(1)}g F`);
+    console.log(`🎯 Target: ${targetCalories} kcal | ${targetProtein}g P | ${targetCarbs}g C | ${targetFats}g F`);
+
+    const proteinDiff = Math.abs(totalP - targetProtein);
+    const carbsDiff = Math.abs(totalC - targetCarbs);
+    const fatsDiff = Math.abs(totalF - targetFats);
+    const caloriesDiff = Math.abs(totalKcal - targetCalories);
+
+    if (proteinDiff > 5 || carbsDiff > 5 || fatsDiff > 5 || caloriesDiff > 30) {
+      console.warn(`⚠️ Macros deviation detected! P: ${proteinDiff.toFixed(1)}g, C: ${carbsDiff.toFixed(1)}g, F: ${fatsDiff.toFixed(1)}g, Kcal: ${caloriesDiff.toFixed(0)}`);
+      throw new Error(`AI generated plan with incorrect macros. Protein: ${totalP.toFixed(1)}g (target: ${targetProtein}g), Carbs: ${totalC.toFixed(1)}g (target: ${targetCarbs}g), Fats: ${totalF.toFixed(1)}g (target: ${targetFats}g)`);
+    }
+
+    console.log('✅ Macros validated successfully!');
 
     await supabase.from('meal_foods').delete().eq('meal_id',
       supabase.from('meals').select('id').eq('diet_id', dietId)
