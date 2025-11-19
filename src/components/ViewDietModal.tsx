@@ -535,7 +535,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       portions[id] = Math.max(30, Math.round(portions[id] * initialFactor));
     });
 
-    for (let iteration = 0; iteration < 200; iteration++) {
+    for (let iteration = 0; iteration < 150; iteration++) {
       currentTotals = calculateTotalsFromPortions(portions);
 
       const caloriesDiff = currentTotals.calories - targetCalories;
@@ -547,50 +547,46 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         break;
       }
 
-      allMealFoods.forEach(mf => {
-        const currentGrams = portions[mf.id];
+      const proteinFoods = allMealFoods.filter(mf => (mf.food.protein / mf.food.portion_size) > 0.05);
+      const carbsFoods = allMealFoods.filter(mf => (mf.food.carbs / mf.food.portion_size) > 0.05);
+      const fatsFoods = allMealFoods.filter(mf => (mf.food.fats / mf.food.portion_size) > 0.05);
 
-        const proteinPerGram = mf.food.protein / mf.food.portion_size;
-        const carbsPerGram = mf.food.carbs / mf.food.portion_size;
-        const fatsPerGram = mf.food.fats / mf.food.portion_size;
-
-        if (proteinPerGram === 0 && carbsPerGram === 0 && fatsPerGram === 0) return;
-
-        const proteinContribution = Math.abs(proteinPerGram * proteinDiff);
-        const carbsContribution = Math.abs(carbsPerGram * carbsDiff);
-        const fatsContribution = Math.abs(fatsPerGram * fatsDiff);
-        const totalContribution = proteinContribution + carbsContribution + fatsContribution;
-
-        if (totalContribution === 0) return;
-
-        const proteinWeight = proteinContribution / totalContribution;
-        const carbsWeight = carbsContribution / totalContribution;
-        const fatsWeight = fatsContribution / totalContribution;
-
-        let adjustment = 0;
-        let validAdjustments = 0;
-
-        if (Math.abs(proteinDiff) > 2 && proteinPerGram > 0.01) {
-          adjustment += ((-proteinDiff / allMealFoods.length) / proteinPerGram) * proteinWeight;
-          validAdjustments++;
-        }
-
-        if (Math.abs(carbsDiff) > 2 && carbsPerGram > 0.01) {
-          adjustment += ((-carbsDiff / allMealFoods.length) / carbsPerGram) * carbsWeight;
-          validAdjustments++;
-        }
-
-        if (Math.abs(fatsDiff) > 1 && fatsPerGram > 0.01) {
-          adjustment += ((-fatsDiff / allMealFoods.length) / fatsPerGram) * fatsWeight;
-          validAdjustments++;
-        }
-
-        if (validAdjustments === 0) return;
-
-        const dampingFactor = 0.3;
-        const newGrams = Math.max(30, Math.round(currentGrams + adjustment * dampingFactor));
-        portions[mf.id] = newGrams;
-      });
+      if (Math.abs(proteinDiff) > 2 && proteinFoods.length > 0) {
+        const adjustmentPerFood = -proteinDiff / proteinFoods.length;
+        proteinFoods.forEach(mf => {
+          const proteinPerGram = mf.food.protein / mf.food.portion_size;
+          const gramsAdjustment = adjustmentPerFood / proteinPerGram;
+          const currentGrams = portions[mf.id];
+          portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
+        });
+      } else if (Math.abs(carbsDiff) > 2 && carbsFoods.length > 0) {
+        const adjustmentPerFood = -carbsDiff / carbsFoods.length;
+        carbsFoods.forEach(mf => {
+          const carbsPerGram = mf.food.carbs / mf.food.portion_size;
+          const gramsAdjustment = adjustmentPerFood / carbsPerGram;
+          const currentGrams = portions[mf.id];
+          portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
+        });
+      } else if (Math.abs(fatsDiff) > 1 && fatsFoods.length > 0) {
+        const adjustmentPerFood = -fatsDiff / fatsFoods.length;
+        fatsFoods.forEach(mf => {
+          const fatsPerGram = mf.food.fats / mf.food.portion_size;
+          const gramsAdjustment = adjustmentPerFood / fatsPerGram;
+          const currentGrams = portions[mf.id];
+          portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
+        });
+      } else if (Math.abs(caloriesDiff) > 55) {
+        allMealFoods.forEach(mf => {
+          const caloriesPerGram = (mf.food.protein * 4 + mf.food.carbs * 4 + mf.food.fats * 9) / mf.food.portion_size;
+          if (caloriesPerGram > 0) {
+            const gramsAdjustment = -caloriesDiff / (allMealFoods.length * caloriesPerGram);
+            const currentGrams = portions[mf.id];
+            portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
+          }
+        });
+      } else {
+        break;
+      }
     }
 
     setPreviewTotals(portions);
