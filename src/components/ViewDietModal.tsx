@@ -571,7 +571,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         const adjustmentPerFood = -fatsDiff / fatsFoods.length;
         fatsFoods.forEach(mf => {
           const fatsPerGram = mf.food.fats / mf.food.portion_size;
-          const gramsAdjustment = adjustmentPerFood / fatsPerGram;
+          const gramsAdjustment = (adjustmentPerFood / fatsPerGram) * 0.4;
           const currentGrams = portions[mf.id];
           portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
         });
