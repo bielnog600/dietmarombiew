@@ -533,9 +533,13 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     const fatsRatio = currentTotals.fats > 0 ? targetFats / currentTotals.fats : 1;
     const initialFactor = (proteinRatio + carbsRatio + fatsRatio) / 3;
 
-    // Apply initial adjustment
+    // Apply initial adjustment with reasonable limits
     Object.keys(portions).forEach(id => {
-      const newPortion = Math.max(25, Math.min(300, Math.round(portions[id] * initialFactor)));
+      const originalPortion = portions[id];
+      const adjustedPortion = originalPortion * initialFactor;
+      const minPortion = Math.max(50, originalPortion * 0.5);
+      const maxPortion = Math.min(500, originalPortion * 2);
+      const newPortion = Math.max(minPortion, Math.min(maxPortion, Math.round(adjustedPortion)));
       portions[id] = newPortion;
     });
 
@@ -583,8 +587,11 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           adjustment = avgAdjustment;
         }
 
-        // Apply adjustment with limits
-        const newGrams = Math.max(25, Math.min(300, Math.round(currentGrams + adjustment)));
+        // Apply adjustment with reasonable limits based on original portion
+        const originalGrams = Math.round(mf.quantity * mf.food.portion_size);
+        const minGrams = Math.max(50, originalGrams * 0.5);
+        const maxGrams = Math.min(500, originalGrams * 2);
+        const newGrams = Math.max(minGrams, Math.min(maxGrams, Math.round(currentGrams + adjustment)));
         portions[mf.id] = newGrams;
       });
     }
