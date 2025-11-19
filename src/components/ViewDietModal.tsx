@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, ChevronLeft, ChevronRight, Upload, ArrowRight } from 'lucide-react';
+import { X, Plus, Trash2, ChevronLeft, ChevronRight, Upload, ArrowRight, ArrowRightLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Diet, Food, MacroDistribution } from '../types';
 import AddFoodModal from './AddFoodModal';
 import PasteDietModal from './PasteDietModal';
+import { FoodSubstitutionModal } from './FoodSubstitutionModal';
 import { useTranslation } from '../translations';
 import { generateDiet } from '../lib/diet';
 import { adjustMacrosWithStrategy } from '../lib/macroAdjust';
@@ -24,6 +25,10 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
   const [editingPortions, setEditingPortions] = useState<Record<string, number>>({});
   const [savingPortions, setSavingPortions] = useState<Record<string, boolean>>({});
   const [deletingFoods, setDeletingFoods] = useState<Record<string, boolean>>({});
+  const [substitutionModalOpen, setSubstitutionModalOpen] = useState(false);
+  const [selectedFoodForSubstitution, setSelectedFoodForSubstitution] = useState<any>(null);
+  const [editingPortionId, setEditingPortionId] = useState<string | null>(null);
+  const [tempPortionValue, setTempPortionValue] = useState<string>('');
   const [error, setError] = useState('');
   const [localDiet, setLocalDiet] = useState<Diet | null>(diet);
   const [previewTotals, setPreviewTotals] = useState<Record<string, any>>({});
@@ -659,6 +664,35 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
+  const handlePortionClick = (mealFoodId: string, currentGrams: number) => {
+    setEditingPortionId(mealFoodId);
+    setTempPortionValue(currentGrams.toString());
+  };
+
+  const handlePortionInputChange = (value: string) => {
+    if (value === '' || /^\d+$/.test(value)) {
+      setTempPortionValue(value);
+    }
+  };
+
+  const handlePortionInputBlur = async (mealFoodId: string) => {
+    const newGrams = parseInt(tempPortionValue) || 5;
+    const minPortion = 5;
+    const maxPortion = 1000;
+    const validGrams = Math.min(maxPortion, Math.max(minPortion, newGrams));
+
+    await handleUpdatePortion(mealFoodId, validGrams);
+    setEditingPortionId(null);
+  };
+
+  const handlePortionInputKeyDown = (e: React.KeyboardEvent, mealFoodId: string) => {
+    if (e.key === 'Enter') {
+      handlePortionInputBlur(mealFoodId);
+    } else if (e.key === 'Escape') {
+      setEditingPortionId(null);
+    }
+  };
+
   const handleUpdatePortion = async (mealFoodId: string, grams: number) => {
     if (grams <= 0) {
       setError('A porção deve ser maior que zero');
@@ -1132,15 +1166,39 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                           ? previewTotals[mealFood.id] / mealFood.food.portion_size
                           : mealFood.quantity;
 
+                        const portion = Math.round(mealFood.quantity * mealFood.food.portion_size);
+
                         return (
                           <tr key={mealFood.id} className="border-b border-[#f8c045]/10">
-                            <td className="py-2 px-3">{mealFood.food.name}</td>
+                            <td className="py-2 px-3">
+                              <div className="flex items-center gap-2">
+                                <span>{mealFood.food.name}</span>
+                                <button
+                                  onClick={() => {
+                                    setSelectedFoodForSubstitution({
+                                      id: mealFood.food.id,
+                                      name: mealFood.food.name,
+                                      protein: mealFood.food.protein,
+                                      carbs: mealFood.food.carbs,
+                                      fats: mealFood.food.fats,
+                                      calories: mealFood.food.calories,
+                                      quantity: mealFood.quantity
+                                    });
+                                    setSubstitutionModalOpen(true);
+                                  }}
+                                  className="text-[#f8c045]/70 hover:text-[#f8c045] transition"
+                                  title="Substituir alimento"
+                                >
+                                  <ArrowRightLeft size={14} className="rotate-90" />
+                                </button>
+                              </div>
+                            </td>
                             <td className="py-1 px-0">
                               <div className="flex items-center justify-end space-x-2">
                                 <button
                                   onClick={() => handlePortionChange(
                                     mealFood.id,
-                                    Math.round(mealFood.quantity * mealFood.food.portion_size),
+                                    portion,
                                     false
                                   )}
                                   className="text-[#f8c045] hover:text-[#e6b041] transition p-1"
@@ -1148,13 +1206,32 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                                 >
                                   <ChevronLeft size={16} />
                                 </button>
-                                <span className="min-w-[3ch] text-center">
-                                  {Math.round(previewQuantity * mealFood.food.portion_size)}g
-                                </span>
+                                {editingPortionId === mealFood.id ? (
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    value={tempPortionValue}
+                                    onChange={(e) => handlePortionInputChange(e.target.value)}
+                                    onBlur={() => handlePortionInputBlur(mealFood.id)}
+                                    onKeyDown={(e) => handlePortionInputKeyDown(e, mealFood.id)}
+                                    placeholder="0"
+                                    className="w-16 bg-[rgb(23,23,23)] text-[#f8c045] text-center rounded border-2 border-[#f8c045] focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50 px-1 py-0.5 text-sm font-medium"
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() => handlePortionClick(mealFood.id, portion)}
+                                    className="min-w-[4ch] text-center cursor-pointer hover:bg-[rgb(23,23,23)] hover:ring-2 hover:ring-[#f8c045]/30 px-2 py-0.5 rounded transition text-[#f8c045] font-medium"
+                                    title="Clique para editar a quantidade"
+                                  >
+                                    {portion}g
+                                  </span>
+                                )}
                                 <button
                                   onClick={() => handlePortionChange(
                                     mealFood.id,
-                                    Math.round(mealFood.quantity * mealFood.food.portion_size),
+                                    portion,
                                     true
                                   )}
                                   className="text-[#f8c045] hover:text-[#e6b041] transition p-1"
@@ -1253,6 +1330,22 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
             meals={localDiet.meals || []}
             onDietGenerated={async () => {
               setShowPasteDietModal(false);
+              await refreshDietData();
+            }}
+          />
+        )}
+
+        {substitutionModalOpen && selectedFoodForSubstitution && (
+          <FoodSubstitutionModal
+            isOpen={substitutionModalOpen}
+            onClose={() => {
+              setSubstitutionModalOpen(false);
+              setSelectedFoodForSubstitution(null);
+            }}
+            currentFood={selectedFoodForSubstitution}
+            onSubstitute={async () => {
+              setSubstitutionModalOpen(false);
+              setSelectedFoodForSubstitution(null);
               await refreshDietData();
             }}
           />
