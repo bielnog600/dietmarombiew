@@ -7,6 +7,7 @@ import PasteDietModal from './PasteDietModal';
 import { useTranslation } from '../translations';
 import { generateDiet } from '../lib/diet';
 import { adjustMacrosWithStrategy } from '../lib/macroAdjust';
+import { adjustMacrosWithAI } from '../lib/openaiAdjust';
 
 interface ViewDietModalProps {
   isOpen: boolean;
@@ -497,27 +498,16 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
-  const handleAutoAdjustWithStrategy = async (strategy: 'cutting' | 'bulking', attempts = 0) => {
+  const handleAutoAdjustWithStrategy = async (strategy: 'cutting' | 'bulking') => {
     if (!localDiet) return;
 
-    if (attempts >= 3) {
-      setError('Não foi possível ajustar completamente. Ajuste manualmente se necessário.');
-      return;
-    }
-
     try {
-      const { portions, foodsAdded } = await adjustMacrosWithStrategy(localDiet, strategy);
-
-      if (foodsAdded) {
-        await refreshDietData();
-        setTimeout(() => handleAutoAdjustWithStrategy(strategy, attempts + 1), 800);
-        return;
-      }
-
+      setError(null);
+      const portions = await adjustMacrosWithAI(localDiet, strategy);
       setPreviewTotals(portions);
     } catch (err) {
-      console.error('Error adjusting macros:', err);
-      setError('Erro ao ajustar macros');
+      console.error('Error adjusting macros with AI:', err);
+      setError('Erro ao ajustar macros: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
     }
   };
 
