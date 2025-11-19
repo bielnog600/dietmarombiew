@@ -497,15 +497,20 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
-  const handleAutoAdjustWithStrategy = async (strategy: 'cutting' | 'bulking') => {
+  const handleAutoAdjustWithStrategy = async (strategy: 'cutting' | 'bulking', attempts = 0) => {
     if (!localDiet) return;
+
+    if (attempts >= 3) {
+      setError('Não foi possível ajustar completamente. Ajuste manualmente se necessário.');
+      return;
+    }
 
     try {
       const { portions, foodsAdded } = await adjustMacrosWithStrategy(localDiet, strategy);
 
       if (foodsAdded) {
         await refreshDietData();
-        setTimeout(() => handleAutoAdjustWithStrategy(strategy), 800);
+        setTimeout(() => handleAutoAdjustWithStrategy(strategy, attempts + 1), 800);
         return;
       }
 

@@ -136,25 +136,36 @@ export async function adjustMacrosWithStrategy(
       }
     }
 
-    const missingMacros: Array<{ type: 'protein' | 'carbs' | 'fats'; amount: number }> = [];
+    if (mealFoods.length === 0) continue;
 
-    if (lastProteinDiff < -5) {
-      missingMacros.push({ type: 'protein', amount: Math.abs(lastProteinDiff) });
-    }
-    if (lastCarbsDiff < -5) {
-      missingMacros.push({ type: 'carbs', amount: Math.abs(lastCarbsDiff) });
-    }
-    if (lastFatsDiff < -3) {
-      missingMacros.push({ type: 'fats', amount: Math.abs(lastFatsDiff) });
+    const needsProtein = lastProteinDiff < -8;
+    const needsCarbs = lastCarbsDiff < -8;
+    const needsFats = lastFatsDiff < -5;
+
+    if (!needsProtein && !needsCarbs && !needsFats) continue;
+
+    const proteinFoods = mealFoods.filter(mf => (mf.food.protein / mf.food.portion_size) > 0.2);
+    const carbsFoods = mealFoods.filter(mf => (mf.food.carbs / mf.food.portion_size) > 0.2);
+    const fatsFoods = mealFoods.filter(mf => (mf.food.fats / mf.food.portion_size) > 0.08);
+
+    if (needsCarbs && carbsFoods.length === 0) {
+      const foodData = MACRO_RICH_FOODS.carbs;
+      const gramsNeeded = (Math.abs(lastCarbsDiff) / foodData.carbs) * foodData.portion_size;
+      await addOrUpdateFoodInMeal(meal.id, foodData, Math.max(50, Math.round(gramsNeeded)));
+      foodsAdded = true;
     }
 
-    for (const missing of missingMacros) {
-      const foodData = MACRO_RICH_FOODS[missing.type];
-      const macroContent = foodData[missing.type];
-      const gramsNeeded = (missing.amount / macroContent) * foodData.portion_size;
-      const quantity = Math.max(50, Math.round(gramsNeeded));
+    if (needsProtein && proteinFoods.length === 0) {
+      const foodData = MACRO_RICH_FOODS.protein;
+      const gramsNeeded = (Math.abs(lastProteinDiff) / foodData.protein) * foodData.portion_size;
+      await addOrUpdateFoodInMeal(meal.id, foodData, Math.max(50, Math.round(gramsNeeded)));
+      foodsAdded = true;
+    }
 
-      await addOrUpdateFoodInMeal(meal.id, foodData, quantity);
+    if (needsFats && fatsFoods.length === 0) {
+      const foodData = MACRO_RICH_FOODS.fats;
+      const gramsNeeded = (Math.abs(lastFatsDiff) / foodData.fats) * foodData.portion_size;
+      await addOrUpdateFoodInMeal(meal.id, foodData, Math.max(10, Math.round(gramsNeeded)));
       foodsAdded = true;
     }
   }
