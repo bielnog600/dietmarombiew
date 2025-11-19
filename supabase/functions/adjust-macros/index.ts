@@ -36,32 +36,68 @@ Deno.serve(async (req: Request) => {
 
     const meals = diet.meals;
 
-    const distributionText = strategy === 'cutting'
-      ? 'Refeição 1: 30% P, 20% C, 20% G; Refeição 2: 15% P, 25% C, 10% G; Refeição 3: 25% P, 35% C, 8% G; Refeição 4: 20% P, 15% C, 25% G; Refeição 5: 10% P, 5% C, 37% G'
-      : 'Refeição 1: 25% P, 20% C, 20% G; Refeição 2: 20% P, 25% C, 15% G; Refeição 3: 25% P, 30% C, 15% G; Refeição 4: 20% P, 20% C, 30% G; Refeição 5: 10% P, 5% C, 20% G';
+    const distributions = strategy === 'cutting'
+      ? [
+          { pct: 0.30, p: Math.round(targetProtein * 0.30), c: Math.round(targetCarbs * 0.20), f: Math.round(targetFats * 0.20) },
+          { pct: 0.15, p: Math.round(targetProtein * 0.15), c: Math.round(targetCarbs * 0.25), f: Math.round(targetFats * 0.10) },
+          { pct: 0.25, p: Math.round(targetProtein * 0.25), c: Math.round(targetCarbs * 0.35), f: Math.round(targetFats * 0.08) },
+          { pct: 0.20, p: Math.round(targetProtein * 0.20), c: Math.round(targetCarbs * 0.15), f: Math.round(targetFats * 0.25) },
+          { pct: 0.10, p: Math.round(targetProtein * 0.10), c: Math.round(targetCarbs * 0.05), f: Math.round(targetFats * 0.37) }
+        ]
+      : [
+          { pct: 0.25, p: Math.round(targetProtein * 0.25), c: Math.round(targetCarbs * 0.20), f: Math.round(targetFats * 0.20) },
+          { pct: 0.20, p: Math.round(targetProtein * 0.20), c: Math.round(targetCarbs * 0.25), f: Math.round(targetFats * 0.15) },
+          { pct: 0.25, p: Math.round(targetProtein * 0.25), c: Math.round(targetCarbs * 0.30), f: Math.round(targetFats * 0.15) },
+          { pct: 0.20, p: Math.round(targetProtein * 0.20), c: Math.round(targetCarbs * 0.20), f: Math.round(targetFats * 0.30) },
+          { pct: 0.10, p: Math.round(targetProtein * 0.10), c: Math.round(targetCarbs * 0.05), f: Math.round(targetFats * 0.20) }
+        ];
 
-    const mealsText = meals.map((meal: any) => {
+    const mealsText = meals.map((meal: any, idx: number) => {
+      const target = distributions[idx] || distributions[0];
       const foodsText = meal.meal_foods.map((mf: any) => {
         const grams = Math.round(mf.quantity * mf.food.portion_size);
         const mult = grams / mf.food.portion_size;
-        return `${mf.id}|${mf.food.name}|${grams}g|(${(mf.food.protein * mult).toFixed(1)}g P, ${(mf.food.carbs * mult).toFixed(1)}g C, ${(mf.food.fats * mult).toFixed(1)}g G)|portionSize:${mf.food.portion_size}g|macros:P${mf.food.protein}g C${mf.food.carbs}g F${mf.food.fats}g`;
-      }).join('\n');
-      return `${meal.name}:\n${foodsText}`;
+        return `  ID: ${mf.id}
+  Alimento: ${mf.food.name}
+  Atual: ${grams}g = ${(mf.food.protein * mult).toFixed(1)}g P, ${(mf.food.carbs * mult).toFixed(1)}g C, ${(mf.food.fats * mult).toFixed(1)}g G
+  Info: A cada ${mf.food.portion_size}g = ${mf.food.protein}g P, ${mf.food.carbs}g C, ${mf.food.fats}g G`;
+      }).join('\n\n');
+      return `━━━ ${meal.name} ━━━
+META DESTA REFEIÇÃO: ${target.p}g P, ${target.c}g C, ${target.f}g G
+
+ALIMENTOS:
+${foodsText}`;
     }).join('\n\n');
 
-    const prompt = `Ajuste quantidades para bater metas exatas.
+    const prompt = `Você é um nutricionista expert. Ajuste as quantidades dos alimentos para bater EXATAMENTE as metas.
 
-META: ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g G (${targetCalories} kcal)
-ESTRATÉGIA: ${strategy}
-DISTRIBUIÇÃO: ${distributionText}
+📊 META DIÁRIA TOTAL:
+- Proteína: ${targetProtein}g
+- Carboidratos: ${targetCarbs}g
+- Gorduras: ${targetFats}g
+- Calorias: ${targetCalories} kcal
 
-REFEIÇÕES:
+📋 ESTRATÉGIA: ${strategy.toUpperCase()}
+
 ${mealsText}
 
-REGRAS: Ajuste apenas quantidades (mínimo 30g, múltiplos de 5g). Diferença máxima ±2g por macro.
+⚠️ REGRAS OBRIGATÓRIAS:
+1. Calcule quantidades em gramas usando a proporção dos macros por porção
+2. Exemplo: Se precisa 50g de proteína e frango tem 31g P a cada 100g, use aproximadamente 160g de frango
+3. Use MÚLTIPLOS DE 5g (150g, 155g, 160g, etc)
+4. Quantidade mínima: 30g
+5. A SOMA de cada macro em TODAS as refeições deve dar EXATAMENTE a meta total (±3g)
+6. Priorize bater CARBOIDRATOS primeiro, depois PROTEÍNA, depois GORDURA
 
-RESPONDA APENAS JSON:
-{"portions": {"id1": 150, "id2": 200}}`;
+🎯 RESPONDA APENAS JSON (sem markdown):
+{
+  "portions": {
+    "meal_food_id_1": 150,
+    "meal_food_id_2": 200
+  }
+}
+
+IMPORTANTE: As quantidades devem fazer a SOMA TOTAL bater exatamente ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g G`;
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
