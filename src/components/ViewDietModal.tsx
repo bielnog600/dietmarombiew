@@ -502,12 +502,23 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     if (!localDiet) return;
 
     try {
-      setError(null);
-      const portions = await adjustMacrosWithAI(localDiet, strategy);
-      setPreviewTotals(portions);
+      setError('');
+      setGeneratingDiet(true);
+      await adjustMacrosWithAI(localDiet, strategy);
+
+      // Fechar modal de estratégia
+      setShowMacroStrategyModal(false);
+
+      // Recarregar dados da dieta
+      await refreshDietData();
+
+      // Mostrar mensagem de sucesso
+      alert('✅ Dieta ajustada com sucesso!');
     } catch (err) {
       console.error('Error adjusting macros with AI:', err);
       setError('Erro ao ajustar macros: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+    } finally {
+      setGeneratingDiet(false);
     }
   };
 
@@ -1257,28 +1268,26 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
               <div className="space-y-3 mb-6">
                 <button
-                  onClick={() => {
-                    setShowMacroStrategyModal(false);
-                    setAdjustingQuantities(true);
-                    handleAutoAdjustQuantities('cutting');
-                  }}
-                  className="w-full p-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition text-left"
+                  onClick={() => handleAutoAdjustQuantities('cutting')}
+                  disabled={generatingDiet}
+                  className="w-full p-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="font-bold mb-1">Cutting</div>
+                  <div className="font-bold mb-1">
+                    {generatingDiet ? '⏳ Gerando dieta...' : 'Cutting'}
+                  </div>
                   <div className="text-sm opacity-90">
                     Distribuição otimizada para perda de gordura e manutenção muscular
                   </div>
                 </button>
 
                 <button
-                  onClick={() => {
-                    setShowMacroStrategyModal(false);
-                    setAdjustingQuantities(true);
-                    handleAutoAdjustQuantities('bulking');
-                  }}
-                  className="w-full p-4 rounded-lg bg-green-600 hover:bg-green-700 text-white transition text-left"
+                  onClick={() => handleAutoAdjustQuantities('bulking')}
+                  disabled={generatingDiet}
+                  className="w-full p-4 rounded-lg bg-green-600 hover:bg-green-700 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="font-bold mb-1">Bulking</div>
+                  <div className="font-bold mb-1">
+                    {generatingDiet ? '⏳ Gerando dieta...' : 'Bulking'}
+                  </div>
                   <div className="text-sm opacity-90">
                     Distribuição otimizada para ganho de massa muscular
                   </div>
@@ -1287,7 +1296,8 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
               <button
                 onClick={() => setShowMacroStrategyModal(false)}
-                className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition"
+                disabled={generatingDiet}
+                className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>

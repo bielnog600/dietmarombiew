@@ -4,7 +4,7 @@ import type { Diet } from '../types';
 export async function adjustMacrosWithAI(
   diet: Diet,
   strategy: 'cutting' | 'bulking'
-): Promise<Record<string, number>> {
+): Promise<void> {
   const targetProtein = diet.macros?.protein || Math.round((diet.calories * 0.4) / 4);
   const targetCarbs = diet.macros?.carbs || Math.round((diet.calories * 0.3) / 4);
   const targetFats = diet.macros?.fats || Math.round((diet.calories * 0.3) / 9);
@@ -38,5 +38,5 @@ export async function adjustMacrosWithAI(
   }
 
   const data = await response.json();
-  return data.portions;
+  console.log('✅ Diet adjusted successfully:', data);
 }
