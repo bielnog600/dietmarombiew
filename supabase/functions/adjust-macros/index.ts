@@ -43,11 +43,10 @@ Deno.serve(async (req: Request) => {
     const { data: allFoods, error: foodsError } = await supabase
       .from('foods')
       .select('id, name, protein, carbs, fats, calories, portion_size')
-      .eq('user_id', userId)
       .order('name');
 
     if (foodsError || !allFoods || allFoods.length === 0) {
-      throw new Error('No foods found for this user');
+      throw new Error('No foods found in database');
     }
 
     console.log(`📦 Found ${allFoods.length} foods available`);
