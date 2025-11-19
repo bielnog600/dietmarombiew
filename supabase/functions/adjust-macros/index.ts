@@ -87,13 +87,15 @@ Deno.serve(async (req: Request) => {
 
     const prompt = `Você é um NUTRICIONISTA PROFISSIONAL criando um plano alimentar completo e equilibrado.
 
-🎯 META DIÁRIA TOTAL (${strategy.toUpperCase()}):
-- Calorias: ${targetCalories} kcal
-- Proteína: ${targetProtein}g
-- Carboidratos: ${targetCarbs}g
-- Gorduras: ${targetFats}g
+🎯 META DIÁRIA TOTAL OBRIGATÓRIA (${strategy.toUpperCase()}):
+- Calorias: ${targetCalories} kcal → VOCÊ DEVE ATINGIR EXATAMENTE ESTE VALOR!
+- Proteína: ${targetProtein}g → VOCÊ DEVE ATINGIR EXATAMENTE ESTE VALOR!
+- Carboidratos: ${targetCarbs}g → VOCÊ DEVE ATINGIR EXATAMENTE ESTE VALOR!
+- Gorduras: ${targetFats}g → VOCÊ DEVE ATINGIR EXATAMENTE ESTE VALOR!
 
-📋 DISTRIBUIÇÃO SUGERIDA POR REFEIÇÃO:
+⚠️ ATENÇÃO: Estes valores são TOTAIS do dia todo, não por refeição!
+
+📋 DISTRIBUIÇÃO SUGERIDA POR REFEIÇÃO (use como referência):
 ${mealPlansText}
 
 🥗 BANCO DE ALIMENTOS DISPONÍVEIS:
@@ -162,20 +164,31 @@ ${foodsList}
    - Vegetais: máximo 2.0
 
 4. VALIDAÇÃO MATEMÁTICA OBRIGATÓRIA:
-   ⚠️ ANTES DE RESPONDER, CALCULE A SOMA TOTAL:
+   ⚠️ ANTES DE RESPONDER, CALCULE A SOMA TOTAL DE TODOS OS ALIMENTOS DE TODAS AS REFEIÇÕES:
 
-   Soma Proteína = Σ (protein × quantity) de TODOS os alimentos
-   Soma Carbos = Σ (carbs × quantity) de TODOS os alimentos
-   Soma Gorduras = Σ (fats × quantity) de TODOS os alimentos
-   Soma Calorias = Σ (calories × quantity) de TODOS os alimentos
+   📊 EXEMPLO DE CÁLCULO CORRETO:
 
-   ✅ REGRAS CRÍTICAS:
-   • Soma Proteína DEVE estar entre ${targetProtein - 3}g e ${targetProtein + 3}g
-   • Soma Carbos DEVE estar entre ${targetCarbs - 3}g e ${targetCarbs + 3}g
-   • Soma Gorduras DEVE estar entre ${targetFats - 3}g e ${targetFats + 3}g
-   • Soma Calorias DEVE estar entre ${targetCalories - 20} e ${targetCalories + 20} kcal
+   Café da manhã:
+   • Ovo (13g P, 1.1g C, 11g G por 100g) × quantity 3.0 = 39g P, 3.3g C, 33g G
+   • Aveia (16g P, 66g C, 6.9g G por 100g) × quantity 0.8 = 12.8g P, 52.8g C, 5.5g G
+   • Banana (1.1g P, 23g C, 0.3g G por 100g) × quantity 1.0 = 1.1g P, 23g C, 0.3g G
+   Subtotal: 52.9g P, 79.1g C, 38.8g G
 
-   ⚠️ Se a soma não estiver correta, AJUSTE as quantities até bater!
+   ... (repita para todas as refeições)
+
+   SOMA TOTAL = 52.9g P + [pré-treino] + [pós-treino] + [jantar] + [ceia]
+
+   ✅ REGRAS CRÍTICAS - A SOMA FINAL DEVE SER:
+   • Proteína: entre ${targetProtein - 8}g e ${targetProtein + 8}g (meta: ${targetProtein}g)
+   • Carboidratos: entre ${targetCarbs - 8}g e ${targetCarbs + 8}g (meta: ${targetCarbs}g)
+   • Gorduras: entre ${targetFats - 8}g e ${targetFats + 8}g (meta: ${targetFats}g)
+   • Calorias: entre ${targetCalories - 50} e ${targetCalories + 50} kcal (meta: ${targetCalories} kcal)
+
+   ⚠️ SE A SOMA NÃO BATER: Aumente as quantities proporcionalmente até atingir a meta!
+
+   Exemplo: Se chegou em 133g P mas a meta é 178g:
+   → Falta 45g P (178 - 133)
+   → Adicione mais alimentos proteicos ou aumente quantities existentes
 
 5. ESTRUTURA DO JSON (sem markdown):
 {
@@ -207,11 +220,21 @@ ${foodsList}
 
 📋 PASSO A PASSO OBRIGATÓRIO:
 1. Monte as refeições com alimentos coerentes
-2. Distribua os macros entre as refeições
-3. Calcule quantity = (macro_desejado / macro_do_alimento)
-4. SOME todos os macros: Σ(protein × quantity), Σ(carbs × quantity), Σ(fats × quantity)
-5. Se não bater, AJUSTE as quantities
-6. Só responda quando a soma total estiver correta!
+2. Distribua os macros entre as refeições usando a tabela sugerida
+3. Calcule quantity para cada alimento: quantity = (gramas_necessárias) / (portion_size)
+4. SOME todos os macros de TODAS as refeições
+5. COMPARE com a meta: ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g F
+6. Se estiver ABAIXO da meta: AUMENTE as quantities ou adicione mais alimentos
+7. Se estiver ACIMA da meta: REDUZA as quantities
+8. Repita até a soma bater na meta (±3g)
+9. Só responda quando: Soma Total ≈ Meta Total
+
+🚨 EXEMPLO DO QUE DEU ERRADO ANTES:
+Meta: 178g P, 266g C, 66g F
+Sua resposta: 133g P, 147g C, 48g F ❌ ERRADO!
+Faltou: 45g P, 119g C, 18g F
+
+Você PRECISA adicionar mais alimentos ou aumentar as quantities até somar 178g P, 266g C, 66g F!
 
 RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
 
@@ -282,7 +305,7 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
     const fatsDiff = Math.abs(totalF - targetFats);
     const caloriesDiff = Math.abs(totalKcal - targetCalories);
 
-    if (proteinDiff > 5 || carbsDiff > 5 || fatsDiff > 5 || caloriesDiff > 30) {
+    if (proteinDiff > 8 || carbsDiff > 8 || fatsDiff > 8 || caloriesDiff > 50) {
       console.warn(`⚠️ Macros deviation detected! P: ${proteinDiff.toFixed(1)}g, C: ${carbsDiff.toFixed(1)}g, F: ${fatsDiff.toFixed(1)}g, Kcal: ${caloriesDiff.toFixed(0)}`);
       throw new Error(`AI generated plan with incorrect macros. Protein: ${totalP.toFixed(1)}g (target: ${targetProtein}g), Carbs: ${totalC.toFixed(1)}g (target: ${targetCarbs}g), Fats: ${totalF.toFixed(1)}g (target: ${targetFats}g)`);
     }
