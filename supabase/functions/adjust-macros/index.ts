@@ -138,6 +138,13 @@ Deno.serve(async (req: Request) => {
 
     // Gerar um número aleatório para variar as dietas
     const randomSeed = Math.floor(Math.random() * 1000);
+
+    // Detectar se é dieta baixa caloria (cutting)
+    const isLowCalorie = targetCalories < 1600;
+    const isCutting = strategy.toLowerCase().includes('cut');
+
+    console.log(`📊 Diet analysis: ${targetCalories} kcal, Strategy: ${strategy}, Low calorie: ${isLowCalorie}, Cutting: ${isCutting}`);
+
     const dietStyles = ['equilibrada', 'low carb', 'flexível', 'moderada em carbs', 'rica em proteína'];
     const selectedStyle = dietStyles[randomSeed % dietStyles.length];
 
@@ -153,6 +160,46 @@ Deno.serve(async (req: Request) => {
     };
 
     const styleInstruction = styleInstructions[selectedStyle] || styleInstructions['equilibrada'];
+
+    // Instruções especiais para cutting/low calorie
+    let cuttingInstructions = '';
+    if (isLowCalorie || isCutting) {
+      cuttingInstructions = `
+
+🔥 ATENÇÃO: DIETA DE CUTTING / BAIXA CALORIA (${targetCalories} kcal)
+
+📋 ALIMENTOS PRIORIZADOS PARA CUTTING:
+✅ Carboidratos de BAIXO índice glicêmico e MENOS densos:
+   - Batata doce (ao invés de arroz branco)
+   - Batata inglesa (menos carbs que arroz)
+   - Aveia (pequenas porções: 15-30g)
+   - Vegetais: brócolis, couve-flor, abobrinha (VOLUMOSOS, baixa caloria)
+
+✅ Proteínas MAGRAS (baixa gordura):
+   - Frango (peito sem pele)
+   - Peixe branco (tilápia, merluza)
+   - Clara de ovos (priorizar sobre ovos inteiros)
+   - Atum em água
+   - Carne magra (patinho, alcatra)
+
+✅ Gorduras em PEQUENAS quantidades:
+   - Azeite: 5-10ml por refeição (quantity 0.05-0.10)
+   - Pasta amendoim: 5-10g (quantity 0.05-0.10)
+   - Castanhas: 8-15g (quantity 0.08-0.15)
+
+❌ EVITE EM CUTTING:
+   - Arroz em grandes quantidades (prefira batata inglesa)
+   - Ovos inteiros em excesso (máximo 2-3 unidades/dia, use mais claras)
+   - Massas, pães, tapioca
+   - Gorduras em excesso
+
+⚖️ DISTRIBUIÇÃO INTELIGENTE:
+   - NÃO concentre toda proteína no café da manhã
+   - Café da manhã: 2-3 ovos inteiros + 2-3 claras (OU só claras)
+   - Distribua proteínas ao longo do dia: 20-30g por refeição
+   - Máximo de ovos no café: 150-200g TOTAL (não 300g!)
+`;
+    }
 
     // Criar aviso sobre alimentos já usados
     let overusedWarning = '';
@@ -187,6 +234,7 @@ ${styleInstruction}
 📊 Random Seed: ${randomSeed} - Use este número para garantir VARIAÇÃO ÚNICA!
 ${usedFoodsInfo}
 ${overusedWarning}
+${cuttingInstructions}
 
 📋 DISTRIBUIÇÃO SUGERIDA POR REFEIÇÃO (FLEXÍVEL - ajuste conforme o estilo):
 ${mealPlansText}
@@ -357,24 +405,25 @@ ${foodsList}
 
 4. EXEMPLO DE DIETA PROFISSIONAL (1200 KCAL - CUTTING):
 
-   🥣 Café da manhã (~250 kcal):
-   - Ovos inteiros: quantity 2.0 (200g = 3-4 ovos)
-   - Claras: quantity 1.5 (150g = 4-5 claras)
-   - Aveia: quantity 0.15 (15g)
+   🥣 Café da manhã (~250 kcal) - DISTRIBUIÇÃO EQUILIBRADA:
+   - Ovos inteiros: quantity 1.0-1.5 (100-150g = 2-3 ovos) ← NÃO EXAGERE!
+   - Claras: quantity 1.0-1.5 (100-150g = 3-4 claras) ← Use claras para mais proteína
+   - Aveia: quantity 0.15-0.30 (15-30g)
    - Morangos: quantity 0.5 (50g)
-   Macros: ~28g P / 12g C / 9g G
+   Macros: ~25-28g P / 12g C / 7-9g G
+   ⚠️ TOTAL de ovos: MÁXIMO 250g (não 300g ou mais!)
 
    🔥 Lanche manhã (~150 kcal):
    - Iogurte grego light: quantity 1.2 (120g)
    - Amêndoas: quantity 0.08 (8g)
    Macros: ~15g P / 6g C / 6g G
 
-   💪 Almoço (~350 kcal):
-   - Peito de frango: quantity 1.4 (140g)
-   - Arroz integral: quantity 0.5 (50g cozido)
-   - Brócolis: quantity 1.2 (120g)
+   💪 Almoço (~350 kcal) - PRIORIZE PROTEÍNA AQUI:
+   - Peito de frango: quantity 1.4-1.6 (140-160g) ← Proteína principal
+   - Batata inglesa: quantity 1.0-1.2 (100-120g) ← Menos carbs que arroz!
+   - Brócolis: quantity 1.2-1.5 (120-150g) ← Volumoso, poucas calorias
    - Azeite: quantity 0.05 (5ml = 1 colher chá)
-   Macros: ~40g P / 22g C / 10g G
+   Macros: ~40g P / 20g C / 8g G
 
    ⚡ Pré/Pós-treino (~250 kcal):
    - Whey protein: quantity 0.3 (30g = 1 dose)
@@ -572,6 +621,9 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
       // Validar quantities realistas
       let hasUnrealisticQuantities = false;
       for (const meal of result.meals) {
+        const mealNameLower = meal.name.toLowerCase();
+        const isBreakfast = mealNameLower.includes('café') || mealNameLower.includes('manhã');
+
         for (const food of meal.foods || []) {
           const foodData = allFoods.find(f => f.id === food.foodId);
           if (foodData && food.quantity < 0.01) {
@@ -581,21 +633,37 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
           // Validações específicas por tipo de alimento
           if (foodData) {
             const name = foodData.name.toLowerCase();
-            // Proteínas: mínimo 100g (1.0)
+
+            // Validação especial para ovos no café da manhã
+            if (isBreakfast && name.includes('ovo') && food.quantity > 2.5) {
+              console.warn(`⚠️ ${meal.name}: ${foodData.name} quantity ${food.quantity} EXCESSIVA (máximo 2.5 = 250g no café)`);
+              hasUnrealisticQuantities = true;
+            }
+
+            // Proteínas: mínimo 80g
             if ((name.includes('frango') || name.includes('carne') || name.includes('peixe') || name.includes('atum')) && food.quantity < 0.8) {
               console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.8 = 80g)`);
               hasUnrealisticQuantities = true;
             }
+
+            // Proteínas: máximo razoável por refeição (250g)
+            if ((name.includes('frango') || name.includes('carne') || name.includes('peixe')) && food.quantity > 2.5) {
+              console.warn(`⚠️ ${meal.name}: ${foodData.name} quantity ${food.quantity} EXCESSIVA (máximo 2.5 = 250g)`);
+              hasUnrealisticQuantities = true;
+            }
+
             // Frutas: mínimo metade de uma fruta (50-60g)
             if ((name.includes('banana') || name.includes('maçã') || name.includes('morango')) && food.quantity < 0.5) {
               console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.5 = 50g)`);
               hasUnrealisticQuantities = true;
             }
+
             // Gorduras: podem ser pequenas (5g = 1 colher chá é aceitável)
             if ((name.includes('pasta') || name.includes('amendoim') || name.includes('azeite') || name.includes('castanha')) && food.quantity < 0.05) {
               console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.05 = 5g/5ml)`);
               hasUnrealisticQuantities = true;
             }
+
             // Aveia: mínimo 15g
             if (name.includes('aveia') && food.quantity < 0.15) {
               console.warn(`⚠️ ${foodData.name}: quantity ${food.quantity} muito pequena (mínimo 0.15 = 15g)`);
