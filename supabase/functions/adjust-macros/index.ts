@@ -24,25 +24,52 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const { dietId, strategy, targetCalories, targetProtein, targetCarbs, targetFats, userId } = body;
 
+    if (!dietId || !userId) {
+      throw new Error('Missing required parameters: dietId or userId');
+    }
+
     const { data: diet, error: dietError } = await supabase
       .from('diets')
-      .select('id, user_id, meals:meals(id, name, meal_foods:meal_foods(id, quantity, food:foods(id, name, protein, carbs, fats, portion_size)))')
+      .select(`
+        id,
+        user_id,
+        meals!meals_diet_id_fkey (
+          id,
+          name,
+          order,
+          meal_foods!meal_foods_meal_id_fkey (
+            id,
+            quantity,
+            food:foods!meal_foods_food_id_fkey (
+              id,
+              name,
+              protein,
+              carbs,
+              fats,
+              portion_size
+            )
+          )
+        )
+      `)
       .eq('id', dietId)
-      .single();
+      .order('order', { foreignTable: 'meals' })
+      .maybeSingle();
+
+    if (dietError || !diet) {
+      throw new Error(`Diet not found: ${dietError?.message || 'Unknown error'}`);
+    }
+
+    const meals = diet.meals || [];
+
+    if (meals.length === 0) {
+      throw new Error('No meals found in diet');
+    }
 
     const { data: allFoods } = await supabase
       .from('foods')
       .select('id, name, protein, carbs, fats, calories, portion_size')
       .eq('user_id', userId)
       .order('name');
-
-    if (dietError || !diet) {
-      throw new Error('Diet not found');
-    }
-
-    const meals = diet.meals;
-
-    const numMeals = meals.length;
 
     const distributionsCutting = [
       { name: 'Café da manhã', kcal: 280, p: 0.30, c: 0.20, f: 0.19 },
@@ -228,7 +255,11 @@ ${allFoods ? allFoods.slice(0, 20).map(f => `   • ${f.name}: ${f.protein}g P, 
     });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error('Error in adjust-macros function:', err);
+    return new Response(JSON.stringify({
+      error: err.message || 'Internal server error',
+      details: err.toString()
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
