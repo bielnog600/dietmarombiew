@@ -255,23 +255,49 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
       attempts++;
       console.log(`🔄 Attempt ${attempts}/${maxAttempts}...`);
 
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + openaiKey,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: messages,
-          temperature: 0.2,
-          max_tokens: 3000,
-        }),
-      });
+      let openaiResponse;
+      let retryAfter = 0;
 
-      if (!openaiResponse.ok) {
-        const errorText = await openaiResponse.text();
-        throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`);
+      // Retry logic for rate limits
+      for (let retryCount = 0; retryCount < 3; retryCount++) {
+        if (retryAfter > 0) {
+          console.log(`⏳ Rate limit hit. Waiting ${retryAfter}s before retry...`);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        }
+
+        openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + openaiKey,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: messages,
+            temperature: 0.2,
+            max_tokens: 3000,
+          }),
+        });
+
+        if (openaiResponse.status === 429) {
+          const errorData = await openaiResponse.json();
+          console.warn('⚠️ Rate limit reached:', errorData);
+
+          // Extract wait time from error message (e.g., "Please try again in 7.94s")
+          const waitMatch = errorData.error?.message?.match(/try again in ([\d.]+)s/);
+          retryAfter = waitMatch ? Math.ceil(parseFloat(waitMatch[1])) + 1 : 10;
+
+          if (retryCount < 2) {
+            continue; // Retry
+          }
+        }
+
+        if (!openaiResponse.ok) {
+          const errorText = await openaiResponse.text();
+          throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`);
+        }
+
+        break; // Success
       }
 
       const openaiData = await openaiResponse.json();
