@@ -535,7 +535,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       portions[id] = Math.max(30, Math.round(portions[id] * initialFactor));
     });
 
-    for (let iteration = 0; iteration < 150; iteration++) {
+    for (let iteration = 0; iteration < 200; iteration++) {
       currentTotals = calculateTotalsFromPortions(portions);
 
       const caloriesDiff = currentTotals.calories - targetCalories;
@@ -547,51 +547,48 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         break;
       }
 
-      const proteinError = Math.abs(proteinDiff);
-      const carbsError = Math.abs(carbsDiff);
-      const fatsError = Math.abs(fatsDiff);
-
-      let priorityMacro = '';
-      if (proteinError > 2 && proteinError >= carbsError && proteinError >= fatsError) {
-        priorityMacro = 'protein';
-      } else if (carbsError > 2 && carbsError >= proteinError && carbsError >= fatsError) {
-        priorityMacro = 'carbs';
-      } else if (fatsError > 1) {
-        priorityMacro = 'fats';
-      }
-
-      if (!priorityMacro) break;
-
-      const relevantFoods = allMealFoods.filter(mf => {
-        const proteinPerGram = mf.food.protein / mf.food.portion_size;
-        const carbsPerGram = mf.food.carbs / mf.food.portion_size;
-        const fatsPerGram = mf.food.fats / mf.food.portion_size;
-
-        if (priorityMacro === 'protein') return proteinPerGram > 0.08;
-        if (priorityMacro === 'carbs') return carbsPerGram > 0.08;
-        if (priorityMacro === 'fats') return fatsPerGram > 0.05;
-        return false;
-      });
-
-      if (relevantFoods.length === 0) break;
-
-      relevantFoods.forEach(mf => {
+      allMealFoods.forEach(mf => {
         const currentGrams = portions[mf.id];
+
         const proteinPerGram = mf.food.protein / mf.food.portion_size;
         const carbsPerGram = mf.food.carbs / mf.food.portion_size;
         const fatsPerGram = mf.food.fats / mf.food.portion_size;
+
+        if (proteinPerGram === 0 && carbsPerGram === 0 && fatsPerGram === 0) return;
+
+        const proteinContribution = Math.abs(proteinPerGram * proteinDiff);
+        const carbsContribution = Math.abs(carbsPerGram * carbsDiff);
+        const fatsContribution = Math.abs(fatsPerGram * fatsDiff);
+        const totalContribution = proteinContribution + carbsContribution + fatsContribution;
+
+        if (totalContribution === 0) return;
+
+        const proteinWeight = proteinContribution / totalContribution;
+        const carbsWeight = carbsContribution / totalContribution;
+        const fatsWeight = fatsContribution / totalContribution;
 
         let adjustment = 0;
+        let validAdjustments = 0;
 
-        if (priorityMacro === 'protein') {
-          adjustment = -proteinDiff / (relevantFoods.length * proteinPerGram);
-        } else if (priorityMacro === 'carbs') {
-          adjustment = -carbsDiff / (relevantFoods.length * carbsPerGram);
-        } else if (priorityMacro === 'fats') {
-          adjustment = -fatsDiff / (relevantFoods.length * fatsPerGram);
+        if (Math.abs(proteinDiff) > 2 && proteinPerGram > 0.01) {
+          adjustment += ((-proteinDiff / allMealFoods.length) / proteinPerGram) * proteinWeight;
+          validAdjustments++;
         }
 
-        const newGrams = Math.max(30, Math.round(currentGrams + adjustment * 0.5));
+        if (Math.abs(carbsDiff) > 2 && carbsPerGram > 0.01) {
+          adjustment += ((-carbsDiff / allMealFoods.length) / carbsPerGram) * carbsWeight;
+          validAdjustments++;
+        }
+
+        if (Math.abs(fatsDiff) > 1 && fatsPerGram > 0.01) {
+          adjustment += ((-fatsDiff / allMealFoods.length) / fatsPerGram) * fatsWeight;
+          validAdjustments++;
+        }
+
+        if (validAdjustments === 0) return;
+
+        const dampingFactor = 0.3;
+        const newGrams = Math.max(30, Math.round(currentGrams + adjustment * dampingFactor));
         portions[mf.id] = newGrams;
       });
     }
