@@ -37,6 +37,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
   const [transferringFood, setTransferringFood] = useState<string | null>(null);
   const [transferTargetMeal, setTransferTargetMeal] = useState<string>('');
   const [adjustingQuantities, setAdjustingQuantities] = useState(false);
+  const [showMacroStrategyModal, setShowMacroStrategyModal] = useState(false);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState(diet?.day_of_week ?? new Date().getDay());
   const [allWeekDiets, setAllWeekDiets] = useState<Diet[]>([]);
   const [addToAllDays, setAddToAllDays] = useState(true);
@@ -495,13 +496,113 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
-  const handleAutoAdjustQuantities = () => {
+  const handleAutoAdjustWithStrategy = (strategy: 'cutting' | 'bulking') => {
+    if (!localDiet || !localDiet.meals || localDiet.meals.length === 0) return;
+
+    const targetProtein = localDiet.macros?.protein || Math.round((localDiet.calories * 0.3) / 4);
+    const targetCarbs = localDiet.macros?.carbs || Math.round((localDiet.calories * 0.45) / 4);
+    const targetFats = localDiet.macros?.fats || Math.round((localDiet.calories * 0.25) / 9);
+
+    const mealDistributions = {
+      cutting: [
+        { protein: 0.30, carbs: 0.175, fats: 0.225 },
+        { protein: 0.15, carbs: 0.225, fats: 0.075 },
+        { protein: 0.25, carbs: 0.325, fats: 0.075 },
+        { protein: 0.20, carbs: 0.125, fats: 0.225 }
+      ],
+      bulking: [
+        { protein: 0.30, carbs: 0.175, fats: 0.225 },
+        { protein: 0.15, carbs: 0.225, fats: 0.075 },
+        { protein: 0.25, carbs: 0.325, fats: 0.075 },
+        { protein: 0.20, carbs: 0.125, fats: 0.225 }
+      ]
+    };
+
+    const distribution = mealDistributions[strategy];
+    const portions: Record<string, number> = {};
+
+    localDiet.meals.forEach((meal, mealIndex) => {
+      const mealDist = distribution[Math.min(mealIndex, distribution.length - 1)];
+      const mealTargetProtein = targetProtein * mealDist.protein;
+      const mealTargetCarbs = targetCarbs * mealDist.carbs;
+      const mealTargetFats = targetFats * mealDist.fats;
+
+      const mealFoods = meal.meal_foods || [];
+
+      mealFoods.forEach(mf => {
+        portions[mf.id] = Math.round(mf.quantity * mf.food.portion_size);
+      });
+
+      for (let iteration = 0; iteration < 100; iteration++) {
+        let currentProtein = 0;
+        let currentCarbs = 0;
+        let currentFats = 0;
+
+        mealFoods.forEach(mf => {
+          const grams = portions[mf.id] || 0;
+          const multiplier = grams / mf.food.portion_size;
+          currentProtein += mf.food.protein * multiplier;
+          currentCarbs += mf.food.carbs * multiplier;
+          currentFats += mf.food.fats * multiplier;
+        });
+
+        const proteinDiff = currentProtein - mealTargetProtein;
+        const carbsDiff = currentCarbs - mealTargetCarbs;
+        const fatsDiff = currentFats - mealTargetFats;
+
+        if (Math.abs(proteinDiff) <= 1 && Math.abs(carbsDiff) <= 1 && Math.abs(fatsDiff) <= 0.5) {
+          break;
+        }
+
+        const proteinFoods = mealFoods.filter(mf => (mf.food.protein / mf.food.portion_size) > 0.05);
+        const carbsFoods = mealFoods.filter(mf => (mf.food.carbs / mf.food.portion_size) > 0.05);
+        const fatsFoods = mealFoods.filter(mf => (mf.food.fats / mf.food.portion_size) > 0.05);
+
+        if (Math.abs(proteinDiff) > 1 && proteinFoods.length > 0) {
+          const adjustmentPerFood = -proteinDiff / proteinFoods.length;
+          proteinFoods.forEach(mf => {
+            const proteinPerGram = mf.food.protein / mf.food.portion_size;
+            const gramsAdjustment = adjustmentPerFood / proteinPerGram;
+            const currentGrams = portions[mf.id];
+            portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
+          });
+        } else if (Math.abs(carbsDiff) > 1 && carbsFoods.length > 0) {
+          const adjustmentPerFood = -carbsDiff / carbsFoods.length;
+          carbsFoods.forEach(mf => {
+            const carbsPerGram = mf.food.carbs / mf.food.portion_size;
+            const gramsAdjustment = adjustmentPerFood / carbsPerGram;
+            const currentGrams = portions[mf.id];
+            portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
+          });
+        } else if (Math.abs(fatsDiff) > 0.5 && fatsFoods.length > 0) {
+          const adjustmentPerFood = -fatsDiff / fatsFoods.length;
+          fatsFoods.forEach(mf => {
+            const fatsPerGram = mf.food.fats / mf.food.portion_size;
+            const gramsAdjustment = (adjustmentPerFood / fatsPerGram) * 0.4;
+            const currentGrams = portions[mf.id];
+            portions[mf.id] = Math.max(30, Math.round(currentGrams + gramsAdjustment));
+          });
+        } else {
+          break;
+        }
+      }
+    });
+
+    setPreviewTotals(portions);
+  };
+
+  const handleAutoAdjustQuantities = (strategy?: 'cutting' | 'bulking') => {
     if (!localDiet) return;
 
     const targetProtein = localDiet.macros?.protein || Math.round((localDiet.calories * 0.3) / 4);
     const targetCarbs = localDiet.macros?.carbs || Math.round((localDiet.calories * 0.45) / 4);
     const targetFats = localDiet.macros?.fats || Math.round((localDiet.calories * 0.25) / 9);
     const targetCalories = localDiet.calories;
+
+    if (strategy) {
+      handleAutoAdjustWithStrategy(strategy);
+      return;
+    }
 
     const allMealFoods = localDiet.meals?.flatMap(m => m.meal_foods || []) || [];
 
@@ -790,8 +891,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                 if (adjustingQuantities) {
                   handleSaveAllPortions();
                 } else {
-                  setAdjustingQuantities(true);
-                  handleAutoAdjustQuantities();
+                  setShowMacroStrategyModal(true);
                 }
               }}
               className={`px-4 py-2 rounded-lg transition font-semibold ${
@@ -1225,6 +1325,54 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               await refreshDietData();
             }}
           />
+        )}
+
+        {showMacroStrategyModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[rgb(23,23,23)] border border-gray-700 rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-bold text-white mb-4">Escolha a Estratégia</h3>
+              <p className="text-gray-300 mb-6 text-sm">
+                Selecione como deseja distribuir os macronutrientes ao longo das refeições:
+              </p>
+
+              <div className="space-y-3 mb-6">
+                <button
+                  onClick={() => {
+                    setShowMacroStrategyModal(false);
+                    setAdjustingQuantities(true);
+                    handleAutoAdjustQuantities('cutting');
+                  }}
+                  className="w-full p-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition text-left"
+                >
+                  <div className="font-bold mb-1">Cutting</div>
+                  <div className="text-sm opacity-90">
+                    Distribuição otimizada para perda de gordura e manutenção muscular
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowMacroStrategyModal(false);
+                    setAdjustingQuantities(true);
+                    handleAutoAdjustQuantities('bulking');
+                  }}
+                  className="w-full p-4 rounded-lg bg-green-600 hover:bg-green-700 text-white transition text-left"
+                >
+                  <div className="font-bold mb-1">Bulking</div>
+                  <div className="text-sm opacity-90">
+                    Distribuição otimizada para ganho de massa muscular
+                  </div>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setShowMacroStrategyModal(false)}
+                className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
