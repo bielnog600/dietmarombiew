@@ -501,97 +501,81 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     const targetProtein = localDiet.macros?.protein || Math.round((localDiet.calories * 0.3) / 4);
     const targetCarbs = localDiet.macros?.carbs || Math.round((localDiet.calories * 0.45) / 4);
     const targetFats = localDiet.macros?.fats || Math.round((localDiet.calories * 0.25) / 9);
+    const targetCalories = localDiet.calories;
 
-    // Get all meal foods
     const allMealFoods = localDiet.meals?.flatMap(m => m.meal_foods || []) || [];
 
-    // Initialize portions with current values
     const portions: Record<string, number> = {};
     allMealFoods.forEach(mf => {
       portions[mf.id] = Math.round(mf.quantity * mf.food.portion_size);
     });
 
-    // Calculate totals from portions
     const calculateTotalsFromPortions = (portionMap: Record<string, number>) => {
       return allMealFoods.reduce((acc, mf) => {
         const grams = portionMap[mf.id] || 0;
         const multiplier = grams / mf.food.portion_size;
+        const calories = (mf.food.protein * 4 + mf.food.carbs * 4 + mf.food.fats * 9) * multiplier;
         return {
           protein: acc.protein + (mf.food.protein * multiplier),
           carbs: acc.carbs + (mf.food.carbs * multiplier),
-          fats: acc.fats + (mf.food.fats * multiplier)
+          fats: acc.fats + (mf.food.fats * multiplier),
+          calories: acc.calories + calories
         };
-      }, { protein: 0, carbs: 0, fats: 0 });
+      }, { protein: 0, carbs: 0, fats: 0, calories: 0 });
     };
 
-    // Get current totals
     let currentTotals = calculateTotalsFromPortions(portions);
 
-    // Calculate initial adjustment factor based on all macros
     const proteinRatio = currentTotals.protein > 0 ? targetProtein / currentTotals.protein : 1;
     const carbsRatio = currentTotals.carbs > 0 ? targetCarbs / currentTotals.carbs : 1;
     const fatsRatio = currentTotals.fats > 0 ? targetFats / currentTotals.fats : 1;
     const initialFactor = (proteinRatio + carbsRatio + fatsRatio) / 3;
 
-    // Apply initial adjustment with reasonable limits
     Object.keys(portions).forEach(id => {
-      const originalPortion = portions[id];
-      const adjustedPortion = originalPortion * initialFactor;
-      const minPortion = Math.max(50, originalPortion * 0.5);
-      const maxPortion = Math.min(500, originalPortion * 2);
-      const newPortion = Math.max(minPortion, Math.min(maxPortion, Math.round(adjustedPortion)));
-      portions[id] = newPortion;
+      portions[id] = Math.max(30, Math.round(portions[id] * initialFactor));
     });
 
-    // Iterative fine-tuning to hit exact targets (max 20 iterations)
-    for (let iteration = 0; iteration < 20; iteration++) {
+    for (let iteration = 0; iteration < 50; iteration++) {
       currentTotals = calculateTotalsFromPortions(portions);
 
-      // Check if we're within acceptable range (±1g for each macro)
+      const caloriesDiff = currentTotals.calories - targetCalories;
       const proteinDiff = currentTotals.protein - targetProtein;
       const carbsDiff = currentTotals.carbs - targetCarbs;
       const fatsDiff = currentTotals.fats - targetFats;
 
-      if (Math.abs(proteinDiff) <= 1 && Math.abs(carbsDiff) <= 1 && Math.abs(fatsDiff) <= 1) {
-        break; // Close enough to targets
+      if (Math.abs(caloriesDiff) <= 55 && Math.abs(proteinDiff) <= 3 && Math.abs(carbsDiff) <= 3 && Math.abs(fatsDiff) <= 2) {
+        break;
       }
 
-      // Find which macro is furthest from target
-      const proteinError = Math.abs(proteinDiff);
-      const carbsError = Math.abs(carbsDiff);
-      const fatsError = Math.abs(fatsDiff);
+      const totalError = Math.abs(caloriesDiff) + Math.abs(proteinDiff) * 4 + Math.abs(carbsDiff) * 4 + Math.abs(fatsDiff) * 9;
+      if (totalError < 1) break;
 
-      // Adjust portions based on the macro that needs the most correction
       allMealFoods.forEach(mf => {
         const currentGrams = portions[mf.id];
-        let adjustment = 0;
 
-        // Calculate how much this food contributes to each macro per gram
         const proteinPerGram = mf.food.protein / mf.food.portion_size;
         const carbsPerGram = mf.food.carbs / mf.food.portion_size;
         const fatsPerGram = mf.food.fats / mf.food.portion_size;
+        const caloriesPerGram = (mf.food.protein * 4 + mf.food.carbs * 4 + mf.food.fats * 9) / mf.food.portion_size;
 
-        // Prioritize adjusting foods that are rich in the problematic macro
-        if (proteinError >= carbsError && proteinError >= fatsError && proteinPerGram > 0.1) {
-          // Protein needs most adjustment and this food has decent protein
-          adjustment = -proteinDiff / (allMealFoods.length * proteinPerGram);
-        } else if (carbsError >= proteinError && carbsError >= fatsError && carbsPerGram > 0.1) {
-          // Carbs need most adjustment
-          adjustment = -carbsDiff / (allMealFoods.length * carbsPerGram);
-        } else if (fatsError >= proteinError && fatsError >= carbsError && fatsPerGram > 0.05) {
-          // Fats need most adjustment
-          adjustment = -fatsDiff / (allMealFoods.length * fatsPerGram);
-        } else {
-          // Distribute adjustment evenly
-          const avgAdjustment = (-proteinDiff - carbsDiff - fatsDiff) / (3 * allMealFoods.length);
-          adjustment = avgAdjustment;
+        let adjustment = 0;
+
+        const macroContribution = Math.abs(proteinPerGram) + Math.abs(carbsPerGram) + Math.abs(fatsPerGram);
+        if (macroContribution === 0) return;
+
+        const targetAdjustment = (
+          (proteinPerGram * -proteinDiff) +
+          (carbsPerGram * -carbsDiff) +
+          (fatsPerGram * -fatsDiff)
+        );
+
+        adjustment = targetAdjustment / allMealFoods.length;
+
+        if (Math.abs(caloriesDiff) > 55) {
+          adjustment = -caloriesDiff / (allMealFoods.length * caloriesPerGram);
         }
 
-        // Apply adjustment with reasonable limits based on original portion
-        const originalGrams = Math.round(mf.quantity * mf.food.portion_size);
-        const minGrams = Math.max(50, originalGrams * 0.5);
-        const maxGrams = Math.min(500, originalGrams * 2);
-        const newGrams = Math.max(minGrams, Math.min(maxGrams, Math.round(currentGrams + adjustment)));
+        const newGrams = Math.max(30, Math.round(currentGrams + adjustment));
         portions[mf.id] = newGrams;
       });
     }
