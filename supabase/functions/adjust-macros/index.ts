@@ -85,7 +85,25 @@ Deno.serve(async (req: Request) => {
       `${idx + 1}. ${meal.name}: ${meal.targetKcal} kcal | ${meal.targetProtein}g P | ${meal.targetCarbs}g C | ${meal.targetFats}g G`
     ).join('\n');
 
-    const prompt = `Você é um NUTRICIONISTA PROFISSIONAL criando um plano alimentar completo e equilibrado.
+    // Gerar um número aleatório para variar as dietas
+    const randomSeed = Math.floor(Math.random() * 1000);
+    const dietStyles = ['equilibrada', 'low carb', 'flexível', 'moderada em carbs', 'rica em proteína'];
+    const selectedStyle = dietStyles[randomSeed % dietStyles.length];
+
+    console.log(`🎨 Selected diet style: ${selectedStyle}`);
+
+    // Instruções específicas por estilo de dieta
+    const styleInstructions: Record<string, string> = {
+      'equilibrada': '⚖️ Distribua os macros de forma balanceada em todas as refeições. Use variedade de fontes.',
+      'low carb': '🥑 PRIORIZE gorduras boas e proteínas. REDUZA carboidratos (use apenas 50-70% dos carbs em vegetais, evite massas/arroz). Aumente abacate, azeite, castanhas.',
+      'flexível': '🎯 Misture TODAS as fontes disponíveis: carnes variadas, peixes, ovos, grãos, tubérculos. Seja MUITO criativo!',
+      'moderada em carbs': '🌾 Use carboidratos em 60-80% do planejado, focando em pré e pós-treino. Aumente levemente as gorduras.',
+      'rica em proteína': '💪 MAXIMIZE proteínas em TODAS as refeições. Use ovos, carnes, peixes, iogurte. Carbs moderados, gorduras baixas.'
+    };
+
+    const styleInstruction = styleInstructions[selectedStyle] || styleInstructions['equilibrada'];
+
+    const prompt = `Você é um NUTRICIONISTA PROFISSIONAL criando um plano alimentar completo, VARIADO e CRIATIVO.
 
 🎯 META DIÁRIA TOTAL OBRIGATÓRIA (${strategy.toUpperCase()}):
 - Calorias: ${targetCalories} kcal → VOCÊ DEVE ATINGIR EXATAMENTE ESTE VALOR!
@@ -95,7 +113,13 @@ Deno.serve(async (req: Request) => {
 
 ⚠️ ATENÇÃO: Estes valores são TOTAIS do dia todo, não por refeição!
 
-📋 DISTRIBUIÇÃO SUGERIDA POR REFEIÇÃO (use como referência):
+🎨 ESTILO DA DIETA: "${selectedStyle.toUpperCase()}"
+${styleInstruction}
+
+🔄 SEJA CRIATIVO E VARIE: Cada dieta deve ser DIFERENTE! Use combinações variadas de alimentos.
+📊 Random Seed: ${randomSeed} - Use este número para garantir VARIAÇÃO ÚNICA!
+
+📋 DISTRIBUIÇÃO SUGERIDA POR REFEIÇÃO (FLEXÍVEL - ajuste conforme o estilo):
 ${mealPlansText}
 
 🥗 BANCO DE ALIMENTOS DISPONÍVEIS:
@@ -105,37 +129,61 @@ ${foodsList}
 
 ⚠️ INSTRUÇÕES CRÍTICAS PARA CRIAR O PLANO ALIMENTAR:
 
-1. REFEIÇÕES REALISTAS E COERENTES:
+1. REFEIÇÕES REALISTAS, COERENTES E VARIADAS:
 
-   ✓ CAFÉ DA MANHÃ - Combine apenas:
-     - Ovos OU iogurte (proteína)
-     - Aveia OU pão integral OU banana (carboidrato)
-     - Castanhas OU pasta de amendoim (gordura saudável - pequena quantidade)
+   🎨 SEJA CRIATIVO! Use diferentes combinações a cada dieta:
 
-   ✓ PRÉ-TREINO - Combine apenas:
-     - Banana OU pão (carboidrato rápido)
-     - Pasta de amendoim OU castanhas (gordura - pouca quantidade)
+   ✓ CAFÉ DA MANHÃ - Varie entre estas opções:
+     OPÇÃO A: Ovos + Aveia + Banana
+     OPÇÃO B: Iogurte + Granola + Frutas
+     OPÇÃO C: Omelete + Pão integral + Abacate
+     OPÇÃO D: Panqueca de aveia + Pasta amendoim + Frutas vermelhas
+     OPÇÃO E: Ovos mexidos + Batata doce + Castanhas
 
-   ✓ PÓS-TREINO - Combine apenas:
-     - Frango OU atum OU ovos (proteína)
-     - Arroz OU batata doce OU macarrão (carboidrato)
-     - Brócolis OU tomate OU cenoura (vegetal)
+   ✓ PRÉ-TREINO - Varie entre:
+     OPÇÃO A: Banana + Pasta amendoim
+     OPÇÃO B: Pão integral + Geleia
+     OPÇÃO C: Batata doce + Mel
+     OPÇÃO D: Aveia + Frutas
+     OPÇÃO E: Tapioca + Queijo branco
 
-   ✓ JANTAR - Combine apenas:
-     - Frango OU carne OU salmão OU ovo (proteína)
-     - Arroz OU batata doce (carboidrato - menor porção)
-     - Brócolis OU espinafre OU salada (vegetal)
+   ✓ PÓS-TREINO - Varie entre:
+     OPÇÃO A: Frango + Arroz + Brócolis
+     OPÇÃO B: Atum + Batata doce + Salada
+     OPÇÃO C: Carne moída + Macarrão integral + Tomate
+     OPÇÃO D: Salmão + Arroz integral + Aspargos
+     OPÇÃO E: Peito peru + Batata inglesa + Cenoura
 
-   ✓ CEIA - Combine apenas:
-     - Queijo cottage OU iogurte OU ovos (proteína)
-     - Castanhas OU abacate (gordura)
+   ✓ JANTAR - Varie entre:
+     OPÇÃO A: Frango grelhado + Legumes + Azeite
+     OPÇÃO B: Carne vermelha + Salada + Abacate
+     OPÇÃO C: Peixe + Quinoa + Vegetais
+     OPÇÃO D: Ovos + Batata doce + Espinafre
+     OPÇÃO E: Salmão + Arroz basmati + Brócolis
 
-2. ERROS QUE VOCÊ DEVE EVITAR:
+   ✓ CEIA - Varie entre:
+     OPÇÃO A: Queijo cottage + Castanhas
+     OPÇÃO B: Iogurte grego + Amêndoas
+     OPÇÃO C: Ovos cozidos + Abacate
+     OPÇÃO D: Atum + Azeite + Tomate
+     OPÇÃO E: Whey protein + Pasta amendoim
+
+   💡 DICA IMPORTANTE: Escolha DIFERENTES opções a cada dieta gerada!
+
+2. REGRAS PARA VARIAR AS DIETAS:
+   ✅ Cada vez que gerar uma dieta, use combinações DIFERENTES
+   ✅ Se for LOW CARB: reduza arroz, massas, pães. Aumente gorduras boas
+   ✅ Se for FLEXÍVEL: misture fontes variadas de carboidratos e proteínas
+   ✅ Se for RICA EM PROTEÍNA: priorize carnes, ovos, peixes em várias refeições
+   ✅ NUNCA repita a mesma dieta - seja criativo!
+
+3. ERROS QUE VOCÊ DEVE EVITAR:
+   ❌ NÃO gere sempre a mesma dieta
    ❌ NÃO misture frango com aveia no café da manhã
    ❌ NÃO coloque iogurte no jantar
    ❌ NÃO use arroz no café da manhã
    ❌ NÃO exagere nas quantidades (máximo 200g de proteína por refeição)
-   ❌ NÃO coloque frango em todas as refeições
+   ❌ NÃO repita os mesmos alimentos em todas as refeições
 
 3. CÁLCULO MATEMÁTICO PRECISO DE QUANTIDADES:
    ⚠️ ATENÇÃO: quantity é o MULTIPLICADOR da porção, não gramas!
@@ -246,7 +294,18 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
     const messages = [
       {
         role: 'system',
-        content: 'Você é um nutricionista expert em cálculos de macronutrientes. Responda APENAS com JSON válido, sem markdown, sem explicações. Calcule EXATAMENTE as quantities para atingir os macros especificados.'
+        content: `Você é um nutricionista expert e CRIATIVO em cálculos de macronutrientes.
+
+REGRAS OBRIGATÓRIAS:
+1. Responda APENAS com JSON válido, sem markdown, sem explicações
+2. Calcule EXATAMENTE as quantities para atingir os macros especificados
+3. SEJA CRIATIVO E VARIADO - cada dieta deve ser ÚNICA e DIFERENTE
+4. Use o estilo da dieta informado para guiar suas escolhas
+5. NUNCA repita as mesmas combinações de alimentos
+6. Varie as fontes de proteína, carboidrato e gordura em cada refeição
+7. Adapte conforme o estilo: low carb, flexível, rica em proteína, etc.
+
+Timestamp: ${Date.now()} - Use este número para garantir variação!`
       },
       { role: 'user', content: prompt }
     ];
