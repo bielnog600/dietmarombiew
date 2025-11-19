@@ -9,6 +9,9 @@ export async function adjustMacrosWithAI(
   const targetCarbs = diet.macros?.carbs || Math.round((diet.calories * 0.3) / 4);
   const targetFats = diet.macros?.fats || Math.round((diet.calories * 0.3) / 9);
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
   const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/adjust-macros`;
 
   const response = await fetch(apiUrl, {
@@ -19,6 +22,7 @@ export async function adjustMacrosWithAI(
     },
     body: JSON.stringify({
       dietId: diet.id,
+      userId: user.id,
       strategy,
       targetCalories: diet.calories,
       targetProtein,

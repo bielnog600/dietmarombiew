@@ -22,13 +22,19 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = await req.json();
-    const { dietId, strategy, targetCalories, targetProtein, targetCarbs, targetFats } = body;
+    const { dietId, strategy, targetCalories, targetProtein, targetCarbs, targetFats, userId } = body;
 
     const { data: diet, error: dietError } = await supabase
       .from('diets')
-      .select('id, meals:meals(id, name, meal_foods:meal_foods(id, quantity, food:foods(id, name, protein, carbs, fats, portion_size)))')
+      .select('id, user_id, meals:meals(id, name, meal_foods:meal_foods(id, quantity, food:foods(id, name, protein, carbs, fats, portion_size)))')
       .eq('id', dietId)
       .single();
+
+    const { data: allFoods } = await supabase
+      .from('foods')
+      .select('id, name, protein, carbs, fats, calories, portion_size')
+      .eq('user_id', userId)
+      .order('name');
 
     if (dietError || !diet) {
       throw new Error('Diet not found');
@@ -130,25 +136,37 @@ ${mealsText}
    → 42 ÷ 0.31 = 135g de frango → arredonde para 135g (múltiplo de 5)
 
 2. AJUSTE FINAL necessário:
-   - Proteína: ${adjustP > 0 ? '+' : ''}${adjustP}g (${adjustP === 0 ? '✓ perfeito' : 'ajustar na última refeição'})
-   - Carbos: ${adjustC > 0 ? '+' : ''}${adjustC}g (${adjustC === 0 ? '✓ perfeito' : 'ajustar na última refeição'})
-   - Gordura: ${adjustF > 0 ? '+' : ''}${adjustF}g (${adjustF === 0 ? '✓ perfeito' : 'ajustar na última refeição'})
+   - Proteína: ${adjustP > 0 ? '+' : ''}${adjustP}g
+   - Carbos: ${adjustC > 0 ? '+' : ''}${adjustC}g
+   - Gordura: ${adjustF > 0 ? '+' : ''}${adjustF}g
 
-3. REGRAS:
+3. BANCO DE ALIMENTOS DISPONÍVEIS (caso precise adicionar refeições):
+${allFoods ? allFoods.slice(0, 20).map(f => `   • ${f.name}: ${f.protein}g P, ${f.carbs}g C, ${f.fats}g G por ${f.portion_size}g [ID: ${f.id}]`).join('\n') : ''}
+
+4. REGRAS:
+   ✓ Se não conseguir bater a meta apenas ajustando quantidades, ADICIONE novas refeições
    ✓ Múltiplos de 5g (135g, 140g, 145g...)
-   ✓ Mínimo: 30g
-   ✓ SOMA TOTAL deve ser: ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g G
+   ✓ Mínimo: 30g por alimento
+   ✓ SOMA TOTAL FINAL deve ser: ${targetProtein}g P, ${targetCarbs}g C, ${targetFats}g G
    ✓ Margem: ±2g por macro
 
-4. RESPONDA APENAS JSON (sem markdown, sem explicações):
+5. RESPONDA JSON (sem markdown):
 {
   "portions": {
-    "meal_food_id": 135,
-    "meal_food_id": 200
-  }
+    "meal_food_id_existente": 135,
+    "meal_food_id_existente": 200
+  },
+  "newMeals": [
+    {
+      "name": "Lanche Extra",
+      "foods": [
+        { "foodId": "uuid-do-alimento", "quantity": 1.5 }
+      ]
+    }
+  ]
 }
 
-⚡ CALCULE COM PRECISÃO MATEMÁTICA!`;
+⚡ PRIORIDADE: Bater exatamente as macros! Se precisar adicionar refeições, adicione!`;
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -180,6 +198,30 @@ ${mealsText}
     }
 
     const result = JSON.parse(jsonMatch[0]);
+
+    if (result.newMeals && result.newMeals.length > 0) {
+      for (const newMeal of result.newMeals) {
+        const { data: createdMeal } = await supabase
+          .from('meals')
+          .insert({
+            diet_id: dietId,
+            name: newMeal.name,
+            order: meals.length + 1
+          })
+          .select()
+          .single();
+
+        if (createdMeal && newMeal.foods) {
+          const mealFoods = newMeal.foods.map((food: any) => ({
+            meal_id: createdMeal.id,
+            food_id: food.foodId,
+            quantity: food.quantity
+          }));
+
+          await supabase.from('meal_foods').insert(mealFoods);
+        }
+      }
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
