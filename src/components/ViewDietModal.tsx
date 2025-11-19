@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, ChevronLeft, ChevronRight, RefreshCw, Upload, ArrowRight } from 'lucide-react';
+import { X, Plus, Trash2, ChevronLeft, ChevronRight, Upload, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Diet, Food, MacroDistribution } from '../types';
 import AddFoodModal from './AddFoodModal';
-import QuickImportModal from './QuickImportModal';
+import PasteDietModal from './PasteDietModal';
 import { useTranslation } from '../translations';
 import { generateDiet } from '../lib/diet';
 
@@ -17,7 +17,7 @@ interface ViewDietModalProps {
 
 export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewDietModalProps) {
   const [showAddFoodModal, setShowAddFoodModal] = useState(false);
-  const [showQuickImportModal, setShowQuickImportModal] = useState(false);
+  const [showPasteDietModal, setShowPasteDietModal] = useState(false);
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
   const [editingPortions, setEditingPortions] = useState<Record<string, number>>({});
   const [savingPortions, setSavingPortions] = useState<Record<string, boolean>>({});
@@ -779,19 +779,11 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           </div>
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => setShowQuickImportModal(true)}
+              onClick={() => setShowPasteDietModal(true)}
               className="text-[#f8c045] hover:text-[#e6b041] transition flex items-center"
             >
               <Upload size={20} className="mr-2" />
-              Importação Rápida
-            </button>
-            <button
-              onClick={handleGenerateNewDiet}
-              className="text-[#f8c045] hover:text-[#e6b041] transition flex items-center"
-              disabled={generatingDiet}
-            >
-              <RefreshCw size={20} className={`mr-2 ${generatingDiet ? 'animate-spin' : ''}`} />
-              {t('generateNewDiet')}
+              Colar Modelo de Dieta
             </button>
             <button
               onClick={() => {
@@ -1221,13 +1213,15 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           />
         )}
 
-        {showQuickImportModal && (
-          <QuickImportModal
-            isOpen={showQuickImportModal}
-            onClose={() => setShowQuickImportModal(false)}
+        {showPasteDietModal && localDiet && (
+          <PasteDietModal
+            isOpen={showPasteDietModal}
+            onClose={() => setShowPasteDietModal(false)}
+            userId={localDiet.user_id}
             dietId={localDiet.id}
-            onImportComplete={async () => {
-              setShowQuickImportModal(false);
+            meals={localDiet.meals || []}
+            onDietGenerated={async () => {
+              setShowPasteDietModal(false);
               await refreshDietData();
             }}
           />
