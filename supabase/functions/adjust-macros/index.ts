@@ -49,6 +49,57 @@ Deno.serve(async (req: Request) => {
       throw new Error('No foods found in database');
     }
 
+    // 🔍 Buscar as dietas da semana atual para evitar repetições
+    const { data: currentWeekDiet } = await supabase
+      .from('diets')
+      .select(`
+        id,
+        day_of_week,
+        meals (
+          id,
+          name,
+          diet_foods (
+            food_id,
+            foods (
+              name
+            )
+          )
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('is_weekly', true)
+      .neq('id', dietId);
+
+    console.log('📅 Found existing diets in week:', currentWeekDiet?.length || 0);
+
+    // Extrair os alimentos já usados nas outras dietas da semana
+    const usedFoodsInWeek: string[] = [];
+    if (currentWeekDiet && currentWeekDiet.length > 0) {
+      currentWeekDiet.forEach((d: any) => {
+        d.meals?.forEach((meal: any) => {
+          meal.diet_foods?.forEach((df: any) => {
+            if (df.foods?.name) {
+              usedFoodsInWeek.push(df.foods.name);
+            }
+          });
+        });
+      });
+    }
+
+    // Contar frequência de uso de cada alimento
+    const foodFrequency: Record<string, number> = {};
+    usedFoodsInWeek.forEach(food => {
+      foodFrequency[food] = (foodFrequency[food] || 0) + 1;
+    });
+
+    // Criar lista de alimentos frequentemente usados (aparecem 2+ vezes)
+    const overusedFoods = Object.entries(foodFrequency)
+      .filter(([_, count]) => count >= 2)
+      .map(([food, _]) => food);
+
+    console.log('🚫 Overused foods to avoid:', overusedFoods.length > 0 ? overusedFoods : 'None');
+    console.log('📊 Food frequency:', foodFrequency);
+
     console.log(`📦 Found ${allFoods.length} foods available`);
 
     const foodsList = allFoods.map(f =>
@@ -103,6 +154,22 @@ Deno.serve(async (req: Request) => {
 
     const styleInstruction = styleInstructions[selectedStyle] || styleInstructions['equilibrada'];
 
+    // Criar aviso sobre alimentos já usados
+    let overusedWarning = '';
+    if (overusedFoods.length > 0) {
+      overusedWarning = `
+🚫 ATENÇÃO: ALIMENTOS JÁ MUITO USADOS NOS OUTROS DIAS DA SEMANA:
+${overusedFoods.map(f => `   ❌ ${f}`).join('\n')}
+
+⚠️ EVITE usar estes alimentos! Eles já aparecem em outras dietas da semana.
+✅ PRIORIZE alimentos DIFERENTES para criar VARIEDADE na semana!
+`;
+    }
+
+    const usedFoodsInfo = usedFoodsInWeek.length > 0
+      ? `\n📋 ALIMENTOS JÁ USADOS EM OUTROS DIAS: ${[...new Set(usedFoodsInWeek)].join(', ')}`
+      : '\n✨ PRIMEIRA DIETA DA SEMANA - Seja criativo!';
+
     const prompt = `Você é um NUTRICIONISTA PROFISSIONAL criando um plano alimentar completo, VARIADO e CRIATIVO.
 
 🎯 META DIÁRIA TOTAL OBRIGATÓRIA (${strategy.toUpperCase()}):
@@ -118,6 +185,8 @@ ${styleInstruction}
 
 🔄 SEJA CRIATIVO E VARIE: Cada dieta deve ser DIFERENTE! Use combinações variadas de alimentos.
 📊 Random Seed: ${randomSeed} - Use este número para garantir VARIAÇÃO ÚNICA!
+${usedFoodsInfo}
+${overusedWarning}
 
 📋 DISTRIBUIÇÃO SUGERIDA POR REFEIÇÃO (FLEXÍVEL - ajuste conforme o estilo):
 ${mealPlansText}
@@ -170,12 +239,16 @@ ${foodsList}
 
    💡 DICA IMPORTANTE: Escolha DIFERENTES opções a cada dieta gerada!
 
-2. REGRAS PARA VARIAR AS DIETAS:
-   ✅ Cada vez que gerar uma dieta, use combinações DIFERENTES
-   ✅ Se for LOW CARB: reduza arroz, massas, pães. Aumente gorduras boas
-   ✅ Se for FLEXÍVEL: misture fontes variadas de carboidratos e proteínas
-   ✅ Se for RICA EM PROTEÍNA: priorize carnes, ovos, peixes em várias refeições
-   ✅ NUNCA repita a mesma dieta - seja criativo!
+2. REGRAS CRÍTICAS PARA VARIAR AS DIETAS (OBRIGATÓRIO):
+   ✅ CADA DIA DA SEMANA DEVE TER DIETA COMPLETAMENTE DIFERENTE
+   ✅ Se há alimentos listados como "JÁ USADOS", EVITE-OS ao máximo
+   ✅ Escolha proteínas DIFERENTES para cada dia (Segunda: frango, Terça: carne, Quarta: peixe, etc)
+   ✅ Varie os carboidratos (Segunda: arroz, Terça: batata doce, Quarta: macarrão, etc)
+   ✅ Se for LOW CARB: reduza arroz, massas, pães. Aumente gorduras boas (abacate, azeite, castanhas)
+   ✅ Se for FLEXÍVEL: misture TODAS as fontes disponíveis - seja MUITO criativo
+   ✅ Se for RICA EM PROTEÍNA: maximize carnes, ovos, peixes. Varie as fontes a cada dia
+   ✅ NUNCA gere a mesma combinação duas vezes - use o Random Seed para criar PADRÕES ÚNICOS
+   ✅ Pense: "Esta dieta é DIFERENTE das outras da semana?" - Se não, MUDE!
 
 3. ERROS QUE VOCÊ DEVE EVITAR:
    ❌ NÃO gere sempre a mesma dieta
@@ -333,8 +406,9 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
           body: JSON.stringify({
             model: 'gpt-4o',
             messages: messages,
-            temperature: 0.2,
+            temperature: 0.8, // Aumentado para mais criatividade e variação
             max_tokens: 3000,
+            seed: randomSeed, // Garantir diferentes resultados
           }),
         });
 
