@@ -86,28 +86,38 @@ export default function PasteDietModal({
   const findFoodInDatabase = async (foodName: string): Promise<Food | null> => {
     const cleanName = foodName
       .replace(/\(.*?\)/g, '')
-      .trim()
-      .toLowerCase();
+      .trim();
 
-    const { data: foods } = await supabase
-      .from('foods')
-      .select('*')
-      .eq('user_id', userId)
-      .ilike('name', `%${cleanName}%`)
-      .limit(1);
+    try {
+      const { data: allFoods, error } = await supabase
+        .from('foods')
+        .select('*')
+        .or(`user_id.eq.${userId},user_id.is.null`);
 
-    if (foods && foods.length > 0) {
-      return foods[0];
+      if (error) {
+        console.error('Error fetching foods:', error);
+        return null;
+      }
+
+      if (!allFoods) return null;
+
+      const lowerCleanName = cleanName.toLowerCase();
+      const exactMatch = allFoods.find(f =>
+        f.name.toLowerCase() === lowerCleanName
+      );
+
+      if (exactMatch) return exactMatch;
+
+      const partialMatch = allFoods.find(f =>
+        f.name.toLowerCase().includes(lowerCleanName) ||
+        lowerCleanName.includes(f.name.toLowerCase())
+      );
+
+      return partialMatch || null;
+    } catch (err) {
+      console.error('Error in findFoodInDatabase:', err);
+      return null;
     }
-
-    const { data: globalFoods } = await supabase
-      .from('foods')
-      .select('*')
-      .is('user_id', null)
-      .ilike('name', `%${cleanName}%`)
-      .limit(1);
-
-    return globalFoods && globalFoods.length > 0 ? globalFoods[0] : null;
   };
 
   const handleProcess = async () => {
