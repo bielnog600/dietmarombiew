@@ -503,14 +503,26 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
+  const mealTypeOptions = [
+    'Café da Manhã',
+    'Lanche da Manhã',
+    'Almoço',
+    'Lanche da Tarde',
+    'Pré-treino',
+    'Pós-treino',
+    'Jantar',
+    'Ceia',
+    'Suplementos'
+  ];
+
   const handleEditMeal = (mealId: string, currentName: string) => {
     setEditingMealId(mealId);
     setEditingMealName(currentName);
   };
 
-  const handleSaveMealName = async (mealId: string) => {
+  const handleSaveMealType = async (mealId: string) => {
     if (!editingMealName.trim()) {
-      setError('Nome da refeição não pode estar vazio');
+      setError('Tipo de refeição não pode estar vazio');
       return;
     }
 
@@ -527,8 +539,8 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       setEditingMealName('');
       await refreshDietData();
     } catch (err) {
-      console.error('Error updating meal name:', err);
-      setError('Erro ao atualizar nome da refeição');
+      console.error('Error updating meal type:', err);
+      setError('Erro ao atualizar tipo da refeição');
     }
   };
 
@@ -1255,16 +1267,20 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                 <div className="flex justify-between items-center mb-4">
                   {editingMealId === meal.id ? (
                     <div className="flex items-center gap-2 flex-1">
-                      <input
-                        type="text"
+                      <select
                         value={editingMealName}
                         onChange={(e) => setEditingMealName(e.target.value)}
-                        className="flex-1 bg-[rgb(28,28,28)] text-[#f8c045] px-3 py-1 rounded border border-[#f8c045]/20"
-                        placeholder="Nome da refeição"
+                        className="flex-1 bg-[rgb(28,28,28)] text-[#f8c045] px-3 py-2 rounded border border-[#f8c045]/20 cursor-pointer"
                         autoFocus
-                      />
+                      >
+                        {mealTypeOptions.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
                       <button
-                        onClick={() => handleSaveMealName(meal.id)}
+                        onClick={() => handleSaveMealType(meal.id)}
                         className="text-green-500 hover:text-green-400 transition"
                         title="Salvar"
                       >
@@ -1289,7 +1305,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                       <button
                         onClick={() => handleEditMeal(meal.id, meal.name || `Refeição ${index + 1}`)}
                         className="text-[#f8c045]/60 hover:text-[#f8c045] transition"
-                        title="Editar nome"
+                        title="Trocar tipo de refeição"
                       >
                         <Edit2 size={16} />
                       </button>
@@ -1476,22 +1492,19 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           {addingNewMeal ? (
             <div className="bg-[rgb(23,23,23)] p-6 rounded-lg border border-[#f8c045]/20">
               <div className="flex items-center gap-3">
-                <input
-                  type="text"
+                <select
                   value={newMealName}
                   onChange={(e) => setNewMealName(e.target.value)}
-                  className="flex-1 bg-[rgb(28,28,28)] text-[#f8c045] px-3 py-2 rounded border border-[#f8c045]/20"
-                  placeholder="Nome da nova refeição"
+                  className="flex-1 bg-[rgb(28,28,28)] text-[#f8c045] px-3 py-2 rounded border border-[#f8c045]/20 cursor-pointer"
                   autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddNewMeal();
-                    } else if (e.key === 'Escape') {
-                      setAddingNewMeal(false);
-                      setNewMealName('');
-                    }
-                  }}
-                />
+                >
+                  <option value="">Selecione o tipo de refeição</option>
+                  {mealTypeOptions.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
                 <button
                   onClick={handleAddNewMeal}
                   className="text-green-500 hover:text-green-400 transition"
