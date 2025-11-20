@@ -78,13 +78,25 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
             macros:diet_macros(*)
           `)
           .eq('user_id', diet.user_id)
-          .order('day_of_week', { ascending: true });
+          .order('created_at', { ascending: false });
 
         if (fetchError) throw fetchError;
 
-        setAllWeekDiets(diets || []);
+        // Keep only the most recent diet for each day_of_week
+        const uniqueDiets = diets?.reduce((acc: Diet[], current) => {
+          const existingIndex = acc.findIndex(d => d.day_of_week === current.day_of_week);
+          if (existingIndex === -1) {
+            acc.push(current);
+          }
+          return acc;
+        }, []) || [];
 
-        const currentDayDiet = diets?.find(d => d.day_of_week === selectedDayOfWeek);
+        // Sort by day_of_week
+        uniqueDiets.sort((a, b) => a.day_of_week - b.day_of_week);
+
+        setAllWeekDiets(uniqueDiets);
+
+        const currentDayDiet = uniqueDiets.find(d => d.day_of_week === selectedDayOfWeek);
         if (currentDayDiet) {
           setLocalDiet(currentDayDiet);
         }
