@@ -13,6 +13,12 @@
     - Admin can manage all records
 */
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can update their own meals" ON meals;
+DROP POLICY IF EXISTS "Users can delete their own meals" ON meals;
+DROP POLICY IF EXISTS "Users can update their own meal_foods" ON meal_foods;
+DROP POLICY IF EXISTS "Users can delete their own meal_foods" ON meal_foods;
+
 -- Add UPDATE policy for meals
 CREATE POLICY "Users can update their own meals"
   ON meals
