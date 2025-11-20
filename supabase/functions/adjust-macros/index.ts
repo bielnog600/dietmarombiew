@@ -217,7 +217,10 @@ ${overusedFoods.map(f => `   ❌ ${f}`).join('\n')}
       ? `\n📋 ALIMENTOS JÁ USADOS EM OUTROS DIAS: ${[...new Set(usedFoodsInWeek)].join(', ')}`
       : '\n✨ PRIMEIRA DIETA DA SEMANA - Seja criativo!';
 
-    const prompt = `Você é um NUTRICIONISTA PROFISSIONAL criando um plano alimentar completo, VARIADO e CRIATIVO.
+    const prompt = `Você é um NUTRICIONISTA PROFISSIONAL criando um plano alimentar completo, VARIADO, CRIATIVO e REALISTA.
+
+🆕 NOVIDADE: Você PODE sugerir novos alimentos que não estão no banco!
+Se precisar de um alimento que não está listado, inclua na resposta com informações nutricionais.
 
 🎯 META DIÁRIA TOTAL OBRIGATÓRIA (${strategy.toUpperCase()}):
 - Calorias: ${targetCalories} kcal → VOCÊ DEVE ATINGIR EXATAMENTE ESTE VALOR!
@@ -234,6 +237,30 @@ ${styleInstruction}
 📊 Random Seed: ${randomSeed} - Use este número para garantir VARIAÇÃO ÚNICA!
 ${usedFoodsInfo}
 ${overusedWarning}
+
+🆕 VOCÊ PODE SUGERIR NOVOS ALIMENTOS!
+Se o banco não tiver o alimento ideal para a variedade que você quer criar:
+✅ Sugira novos alimentos no campo "newFoods" do JSON
+✅ Use foodId: "NEW_NomeDoAlimento" nas refeições
+✅ Exemplos: "NEW_Salmão grelhado", "NEW_Quinoa", "NEW_Iogurte desnatado"
+✅ Sempre com valores nutricionais para 100g
+
+💡 IDEIAS DE VARIAÇÃO (use alimentos diferentes a cada dia):
+- SEGUNDA: Frango + Arroz + Brócolis
+- TERÇA: Carne moída + Batata doce + Cenoura
+- QUARTA: Salmão + Quinoa + Aspargos (sugira se não houver!)
+- QUINTA: Tilápia + Arroz integral + Couve-flor
+- SEXTA: Picanha magra + Purê de batata + Salada
+- SÁBADO: Atum + Macarrão integral + Tomate
+- DOMINGO: Peru + Arroz basmati + Pimentão
+
+🎯 ESTRATÉGIA DE VARIEDADE:
+1. Alterne proteínas: frango → carne → peixe → ovos → repeat
+2. Alterne carbos: arroz → batata doce → aveia → massa → repeat
+3. Alterne vegetais: brócolis → couve-flor → cenoura → abobrinha → repeat
+4. Use diferentes preparos: grelhado, assado, cozido, refogado
+5. Varie frutas: banana → maçã → morango → mamão → repeat
+
 ${cuttingInstructions}
 
 📋 DISTRIBUIÇÃO SUGERIDA POR REFEIÇÃO (FLEXÍVEL - ajuste conforme o estilo):
@@ -477,8 +504,27 @@ ${foodsList}
         { "foodId": "uuid-da-pasta-amendoim", "quantity": 0.2 }
       ]
     }
+  ],
+  "newFoods": [
+    {
+      "name": "Nome do novo alimento",
+      "protein": 25.0,
+      "carbs": 0.0,
+      "fats": 5.0,
+      "calories": 145,
+      "portion_size": 100,
+      "category": "Proteína"
+    }
   ]
 }
+
+⚠️ IMPORTANTE SOBRE NOVOS ALIMENTOS:
+- Use "newFoods" APENAS se o alimento NÃO estiver no banco
+- PRIORIZE usar alimentos do banco (lista acima)
+- Novos alimentos devem ter: name, protein, carbs, fats, calories, portion_size (sempre 100g), category
+- Categorias válidas: "Proteína", "Carboidrato", "Gordura", "Vegetal", "Fruta", "Laticínio"
+- Valores nutricionais para 100g do alimento
+- Foodcomposition.co.uk é uma boa referência para valores nutricionais
 
 ⚡ PRIORIDADE MÁXIMA:
 1. Criar refeições COERENTES e REALISTAS (café da manhã com alimentos de café)
@@ -518,16 +564,17 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
     const messages = [
       {
         role: 'system',
-        content: `Você é um nutricionista expert e CRIATIVO em cálculos de macronutrientes.
+        content: `Você é um nutricionista expert, EXTREMAMENTE CRIATIVO e inovador em cálculos de macronutrientes.
 
 REGRAS OBRIGATÓRIAS:
 1. Responda APENAS com JSON válido, sem markdown, sem explicações
 2. Calcule EXATAMENTE as quantities para atingir os macros especificados
-3. SEJA CRIATIVO E VARIADO - cada dieta deve ser ÚNICA e DIFERENTE
+3. SEJA EXTREMAMENTE CRIATIVO - NUNCA gere a mesma dieta duas vezes!
 4. Use o estilo da dieta informado para guiar suas escolhas
-5. NUNCA repita as mesmas combinações de alimentos
-6. Varie as fontes de proteína, carboidrato e gordura em cada refeição
+5. SEMPRE varie: proteínas, carboidratos, vegetais, frutas, preparos
+6. EVITE alimentos já usados nos outros dias da semana
 7. Adapte conforme o estilo: low carb, flexível, rica em proteína, etc.
+8. PODE sugerir novos alimentos com "newFoods" se necessário para variar
 
 ⚠️ QUANTIDADES REALISTAS EM GRAMAS (CRÍTICO):
 8. PENSE EM GRAMAS PRIMEIRO, depois converta para quantity
@@ -571,9 +618,9 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
           body: JSON.stringify({
             model: 'gpt-4o',
             messages: messages,
-            temperature: 0.8, // Aumentado para mais criatividade e variação
-            max_tokens: 3000,
-            seed: randomSeed, // Garantir diferentes resultados
+            temperature: 0.95, // Máxima criatividade e variação
+            max_tokens: 3500,
+            seed: randomSeed + Date.now(), // Garantir diferentes resultados a cada chamada
           }),
         });
 
@@ -810,6 +857,102 @@ Refaça o plano corrigindo as quantities. RESPONDA APENAS COM O JSON CORRIGIDO!`
     }
 
     console.log('✅ Mathematical adjustment complete!');
+
+    // 🆕 Processar novos alimentos sugeridos pelo OpenAI
+    if (result.newFoods && Array.isArray(result.newFoods) && result.newFoods.length > 0) {
+      console.log(`🆕 Processing ${result.newFoods.length} new foods suggested by AI...`);
+
+      for (const newFood of result.newFoods) {
+        try {
+          // Verificar se o alimento já existe
+          const { data: existingFood } = await supabase
+            .from('foods')
+            .select('id, name')
+            .ilike('name', newFood.name)
+            .maybeSingle();
+
+          if (existingFood) {
+            console.log(`  ℹ️ Food "${newFood.name}" already exists (ID: ${existingFood.id})`);
+
+            // Substituir referências ao novo alimento pelo existente
+            for (const meal of result.meals) {
+              for (const food of meal.foods || []) {
+                if (food.foodId === 'NEW_' + newFood.name) {
+                  food.foodId = existingFood.id;
+                  console.log(`  🔄 Replaced NEW_${newFood.name} with existing ID ${existingFood.id}`);
+                }
+              }
+            }
+            continue;
+          }
+
+          // Buscar ou criar categoria
+          let categoryId = null;
+          if (newFood.category) {
+            const { data: existingCategory } = await supabase
+              .from('food_categories')
+              .select('id')
+              .eq('name', newFood.category)
+              .maybeSingle();
+
+            if (existingCategory) {
+              categoryId = existingCategory.id;
+            } else {
+              const { data: createdCategory } = await supabase
+                .from('food_categories')
+                .insert({ name: newFood.category })
+                .select('id')
+                .single();
+
+              if (createdCategory) {
+                categoryId = createdCategory.id;
+                console.log(`  ✅ Created new category: ${newFood.category}`);
+              }
+            }
+          }
+
+          // Registrar novo alimento
+          const { data: createdFood, error: foodError } = await supabase
+            .from('foods')
+            .insert({
+              name: newFood.name,
+              protein: newFood.protein || 0,
+              carbs: newFood.carbs || 0,
+              fats: newFood.fats || 0,
+              calories: newFood.calories || Math.round((newFood.protein * 4) + (newFood.carbs * 4) + (newFood.fats * 9)),
+              portion_size: newFood.portion_size || 100,
+              category_id: categoryId,
+              user_id: userId
+            })
+            .select()
+            .single();
+
+          if (foodError) {
+            console.error(`  ❌ Error creating food "${newFood.name}":`, foodError);
+            continue;
+          }
+
+          console.log(`  ✅ Created new food: ${createdFood.name} (ID: ${createdFood.id})`);
+          console.log(`     → ${createdFood.protein}g P, ${createdFood.carbs}g C, ${createdFood.fats}g F (${createdFood.calories} kcal)`);
+
+          // Substituir referências temporárias pelo ID real
+          for (const meal of result.meals) {
+            for (const food of meal.foods || []) {
+              if (food.foodId === 'NEW_' + newFood.name) {
+                food.foodId = createdFood.id;
+                console.log(`  🔄 Replaced NEW_${newFood.name} with new ID ${createdFood.id}`);
+              }
+            }
+          }
+
+          // Adicionar à lista de alimentos disponíveis
+          allFoods.push(createdFood);
+
+        } catch (err) {
+          console.error(`  ❌ Error processing new food "${newFood.name}":`, err);
+        }
+      }
+    }
 
     await supabase.from('meal_foods').delete().eq('meal_id',
       supabase.from('meals').select('id').eq('diet_id', dietId)
