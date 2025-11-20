@@ -651,20 +651,23 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
     const messages = [
       {
         role: 'system',
-        content: `Você é um nutricionista expert, EXTREMAMENTE CRIATIVO, inovador e ANTI-REPETIÇÃO em cálculos de macronutrientes.
+        content: `Você é um nutricionista expert especializado em criar planos alimentares variados e únicos.
 
-🎲 MISSÃO PRINCIPAL: CRIAR DIETAS ÚNICAS E DIFERENTES A CADA GERAÇÃO!
+Você DEVE responder APENAS com JSON válido no seguinte formato:
+{
+  "meals": [{"name": "string", "foods": [{"foodId": "uuid", "quantity": number}]}],
+  "newFoods": [{"name": "string", "protein": number, "carbs": number, "fats": number, "calories": number, "portion_size": 100, "category": "string"}]
+}
 
-REGRAS OBRIGATÓRIAS:
-1. Responda APENAS com JSON válido, sem markdown, sem explicações
-2. Calcule EXATAMENTE as quantities para atingir os macros especificados
-3. SEJA EXTREMAMENTE CRIATIVO - NUNCA gere a mesma dieta duas vezes!
-4. CADA GERAÇÃO DEVE TER PROTEÍNAS, CARBOS E VEGETAIS COMPLETAMENTE DIFERENTES
-5. Use o Random Seed (${randomSeed}) como guia para escolhas únicas
-6. EVITE alimentos já usados nos outros dias da semana
-7. Adapte conforme o estilo: ${selectedStyle}
-8. PODE E DEVE sugerir novos alimentos com "newFoods" para criar variedade
-9. Pense: "Esta é a ${Math.floor(randomSeed % 100)}ª dieta única que estou criando"
+REGRAS CRÍTICAS:
+1. Responda APENAS JSON válido, sem texto adicional
+2. SEJA EXTREMAMENTE CRIATIVO - NUNCA gere a mesma dieta duas vezes!
+3. CADA GERAÇÃO DEVE TER PROTEÍNAS, CARBOS E VEGETAIS COMPLETAMENTE DIFERENTES
+4. Use o Random Seed (${randomSeed}) como guia para escolhas únicas
+5. EVITE alimentos já usados nos outros dias da semana
+6. Adapte conforme o estilo: ${selectedStyle}
+7. PODE sugerir novos alimentos com "newFoods" para criar variedade
+8. Pense: "Esta é a ${Math.floor(randomSeed % 100)}ª dieta única que estou criando"
 
 ⚠️ QUANTIDADES REALISTAS EM GRAMAS (CRÍTICO):
 10. PENSE EM GRAMAS PRIMEIRO, depois converta para quantity
@@ -708,11 +711,12 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
           body: JSON.stringify({
             model: 'gpt-4o',
             messages: messages,
-            temperature: 1.0, // MÁXIMA criatividade (valor máximo possível)
+            temperature: 0.9, // Alta criatividade mas controlada
             max_tokens: 4000,
-            top_p: 0.95, // Adiciona mais aleatoriedade
-            frequency_penalty: 1.5, // Penaliza repetições MUITO
-            presence_penalty: 1.5, // Encoraja novos tokens/alimentos
+            top_p: 0.95, // Adiciona aleatoriedade
+            frequency_penalty: 0.8, // Penaliza repetições moderadamente
+            presence_penalty: 0.8, // Encoraja novos tokens
+            response_format: { type: "json_object" }, // FORÇA JSON válido
             // Removido seed para garantir máxima variação
           }),
         });
@@ -739,17 +743,40 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
       }
 
       const openaiData = await openaiResponse.json();
-      const content = openaiData.choices[0].message.content.trim();
+      let content = openaiData.choices[0].message.content.trim();
 
       console.log('📄 OpenAI response received');
 
+      // Remover markdown code blocks se houver
+      content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+
+      // Extrair JSON
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         console.warn('⚠️ No JSON found in response, retrying...');
+        console.log('Content received:', content.substring(0, 200));
         continue;
       }
 
-      result = JSON.parse(jsonMatch[0]);
+      let jsonString = jsonMatch[0];
+
+      // Limpar possíveis problemas de formatação
+      jsonString = jsonString
+        .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+        .replace(/[\u0000-\u001F]+/g, '') // Remove control characters
+        .replace(/\\/g, '\\\\') // Escape backslashes
+        .replace(/\n/g, '\\n') // Escape newlines
+        .replace(/\r/g, '\\r') // Escape carriage returns
+        .replace(/\t/g, '\\t'); // Escape tabs
+
+      try {
+        result = JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        console.log('Failed JSON string (first 500 chars):', jsonString.substring(0, 500));
+        console.warn('⚠️ Invalid JSON, retrying...');
+        continue;
+      }
 
       if (!result.meals || !Array.isArray(result.meals)) {
         console.warn('⚠️ Invalid structure, retrying...');
