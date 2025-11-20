@@ -3,6 +3,7 @@ import { supabase, updateUserPassword } from '../lib/supabase';
 import { Plus, Pencil, Trash2, X, Calculator, Eye, Droplet, Calendar } from 'lucide-react';
 import type { User, MacroDistribution, Diet } from '../types';
 import DietPlanning from './DietPlanning';
+import DietPlanningOptimized from './DietPlanningOptimized';
 import ViewDietModal from './ViewDietModal';
 import WaterIntakeModal from './WaterIntakeModal';
 import WeeklyDietConfig from './WeeklyDietConfig';
@@ -32,6 +33,7 @@ function UserManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDietModal, setShowDietModal] = useState(false);
+  const [showDietModalOptimized, setShowDietModalOptimized] = useState(false);
   const [showViewDietModal, setShowViewDietModal] = useState(false);
   const [showWaterIntakeModal, setShowWaterIntakeModal] = useState(false);
   const [showWeeklyDietModal, setShowWeeklyDietModal] = useState(false);
@@ -251,7 +253,7 @@ function UserManagement() {
 
     setSelectedUser(user);
     setSelectedDayOfWeek(dayOfWeek);
-    setShowDietModal(true);
+    setShowDietModalOptimized(true);
   };
 
   const handlePlanWeeklyDiet = (userId: string) => {
@@ -1016,6 +1018,21 @@ function UserManagement() {
           onComplete={() => {
             fetchUsers();
           }}
+        />
+      )}
+
+      {showDietModalOptimized && selectedUser && (
+        <DietPlanningOptimized
+          isOpen={showDietModalOptimized}
+          onClose={() => {
+            setShowDietModalOptimized(false);
+            setSelectedUser(null);
+          }}
+          user={selectedUser}
+          onComplete={() => {
+            fetchUsers();
+          }}
+          dayOfWeek={selectedDayOfWeek}
         />
       )}
     </div>
