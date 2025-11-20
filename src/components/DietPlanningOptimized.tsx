@@ -45,6 +45,12 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
   const [applyToAllDays, setApplyToAllDays] = useState(true);
   const [daysCalories, setDaysCalories] = useState<DayCalories[]>([]);
 
+  const [macroPercentages, setMacroPercentages] = useState({
+    protein: 30,
+    carbs: 45,
+    fats: 25
+  });
+
   const [calculatedValues, setCalculatedValues] = useState<{
     baseCalories: number;
     adjustedCalories: number;
@@ -68,7 +74,7 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
 
   useEffect(() => {
     calculateValues();
-  }, [user, calorieAdjustment, calculationMethod, activityLevel]);
+  }, [user, calorieAdjustment, calculationMethod, activityLevel, macroPercentages]);
 
   const calculateValues = () => {
     const calculations = calculateRecommendedCalories({
@@ -100,9 +106,9 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
         const adjustedCalories = Math.round(baseCalories * (1 + adjustmentPercent));
 
         const macros: MacroDistribution = {
-          protein: Math.round(adjustedCalories * 0.3 / 4),
-          carbs: Math.round(adjustedCalories * 0.45 / 4),
-          fats: Math.round(adjustedCalories * 0.25 / 9)
+          protein: Math.round(adjustedCalories * (macroPercentages.protein / 100) / 4),
+          carbs: Math.round(adjustedCalories * (macroPercentages.carbs / 100) / 4),
+          fats: Math.round(adjustedCalories * (macroPercentages.fats / 100) / 9)
         };
 
         setCalculatedValues({
@@ -168,6 +174,13 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
     ));
   };
 
+  const updateMacroPercentage = (macro: 'protein' | 'carbs' | 'fats', value: number) => {
+    setMacroPercentages(prev => ({
+      ...prev,
+      [macro]: value
+    }));
+  };
+
   const applyCaloriesToAll = () => {
     const firstDayCalories = daysCalories[0]?.calories || calculatedValues.adjustedCalories;
     setDaysCalories(prev => prev.map(day => ({ ...day, calories: firstDayCalories })));
@@ -210,9 +223,9 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
 
       for (const dayData of daysToCreate) {
         const macros: MacroDistribution = {
-          protein: Math.round(dayData.calories * 0.3 / 4),
-          carbs: Math.round(dayData.calories * 0.45 / 4),
-          fats: Math.round(dayData.calories * 0.25 / 9)
+          protein: Math.round(dayData.calories * (macroPercentages.protein / 100) / 4),
+          carbs: Math.round(dayData.calories * (macroPercentages.carbs / 100) / 4),
+          fats: Math.round(dayData.calories * (macroPercentages.fats / 100) / 9)
         };
 
         const { data: existingDiet } = await supabase
@@ -254,9 +267,9 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
 
               const mealCalories = Math.round(dayData.calories * (config.percentage / 100));
               const mealMacros: MacroDistribution = {
-                protein: Math.round(mealCalories * 0.3 / 4),
-                carbs: Math.round(mealCalories * 0.45 / 4),
-                fats: Math.round(mealCalories * 0.25 / 9)
+                protein: Math.round(mealCalories * (macroPercentages.protein / 100) / 4),
+                carbs: Math.round(mealCalories * (macroPercentages.carbs / 100) / 4),
+                fats: Math.round(mealCalories * (macroPercentages.fats / 100) / 9)
               };
 
               await generateDiet(meal.id, mealCalories, mealMacros, config.categories);
@@ -287,9 +300,9 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
 
                 const mealCalories = Math.round(dayData.calories * (config.percentage / 100));
                 const mealMacros: MacroDistribution = {
-                  protein: Math.round(mealCalories * 0.3 / 4),
-                  carbs: Math.round(mealCalories * 0.45 / 4),
-                  fats: Math.round(mealCalories * 0.25 / 9)
+                  protein: Math.round(mealCalories * (macroPercentages.protein / 100) / 4),
+                  carbs: Math.round(mealCalories * (macroPercentages.carbs / 100) / 4),
+                  fats: Math.round(mealCalories * (macroPercentages.fats / 100) / 9)
                 };
 
                 await generateDiet(meal.id, mealCalories, mealMacros, config.categories);
@@ -505,6 +518,89 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
                   ))}
                 </div>
               )}
+
+              <div className="mt-6">
+                <h4 className="text-lg font-semibold text-white mb-4">Distribuição de Macronutrientes</h4>
+                <p className="text-gray-400 text-sm mb-4">
+                  Ajuste as porcentagens dos macronutrientes. Total: <span className={`font-bold ${
+                    macroPercentages.protein + macroPercentages.carbs + macroPercentages.fats === 100
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }`}>
+                    {macroPercentages.protein + macroPercentages.carbs + macroPercentages.fats}%
+                  </span> {macroPercentages.protein + macroPercentages.carbs + macroPercentages.fats !== 100 && '(deve somar 100%)'}
+                </p>
+
+                <div className="bg-[rgb(23,23,23)] p-4 rounded-lg border border-[#f8c045]/10 space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-gray-300 font-semibold">Proteína</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number"
+                          value={macroPercentages.protein}
+                          onChange={(e) => updateMacroPercentage('protein', Number(e.target.value))}
+                          className="w-16 bg-[rgb(28,28,28)] text-gray-300 p-2 rounded-lg border border-[#f8c045]/20 focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50 text-center"
+                          min="0"
+                          max="100"
+                        />
+                        <span className="text-gray-400 text-sm w-8">%</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {calculatedValues.macros.protein}g ({Math.round(calculatedValues.macros.protein * 4)} kcal)
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-gray-300 font-semibold">Carboidratos</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number"
+                          value={macroPercentages.carbs}
+                          onChange={(e) => updateMacroPercentage('carbs', Number(e.target.value))}
+                          className="w-16 bg-[rgb(28,28,28)] text-gray-300 p-2 rounded-lg border border-[#f8c045]/20 focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50 text-center"
+                          min="0"
+                          max="100"
+                        />
+                        <span className="text-gray-400 text-sm w-8">%</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {calculatedValues.macros.carbs}g ({Math.round(calculatedValues.macros.carbs * 4)} kcal)
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-gray-300 font-semibold">Gorduras</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number"
+                          value={macroPercentages.fats}
+                          onChange={(e) => updateMacroPercentage('fats', Number(e.target.value))}
+                          className="w-16 bg-[rgb(28,28,28)] text-gray-300 p-2 rounded-lg border border-[#f8c045]/20 focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50 text-center"
+                          min="0"
+                          max="100"
+                        />
+                        <span className="text-gray-400 text-sm w-8">%</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {calculatedValues.macros.fats}g ({Math.round(calculatedValues.macros.fats * 9)} kcal)
+                    </div>
+                  </div>
+                </div>
+
+                {macroPercentages.protein + macroPercentages.carbs + macroPercentages.fats !== 100 && (
+                  <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                    <p className="text-red-300 text-sm">
+                      ⚠️ A soma das porcentagens dos macronutrientes deve ser 100%
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -600,7 +696,7 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
           {currentStepIndex < steps.length - 1 ? (
             <button
               onClick={goNext}
-              disabled={loading}
+              disabled={loading || (currentStep === 'calories' && macroPercentages.protein + macroPercentages.carbs + macroPercentages.fats !== 100)}
               className="flex items-center gap-2 bg-[#f8c045] text-[rgb(23,23,23)] py-2 px-4 rounded-lg hover:bg-[#e6b041] transition font-semibold disabled:opacity-50"
             >
               Próximo
