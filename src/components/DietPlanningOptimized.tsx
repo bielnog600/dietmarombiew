@@ -29,6 +29,11 @@ interface DayCalories {
     carbs: number;
     fats: number;
   };
+  macroGrams?: {
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
 }
 
 type Step = 'calculation' | 'calories' | 'meals';
@@ -125,6 +130,10 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
         });
 
         if (daysCalories.length === 0) {
+          const proteinG = Math.round(adjustedCalories * (macroPercentages.protein / 100) / 4);
+          const carbsG = Math.round(adjustedCalories * (macroPercentages.carbs / 100) / 4);
+          const fatsG = Math.round(adjustedCalories * (macroPercentages.fats / 100) / 9);
+
           setDaysCalories(
             dayNames.map((name, index) => ({
               dayOfWeek: index,
@@ -134,6 +143,11 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
                 protein: macroPercentages.protein,
                 carbs: macroPercentages.carbs,
                 fats: macroPercentages.fats
+              },
+              macroGrams: {
+                protein: proteinG,
+                carbs: carbsG,
+                fats: fatsG
               }
             }))
           );
@@ -189,17 +203,13 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
   const updateDayMacroGrams = (dayOfWeek: number, macro: 'protein' | 'carbs' | 'fats', grams: number) => {
     setDaysCalories(prev => prev.map(day => {
       if (day.dayOfWeek === dayOfWeek) {
-        const currentProteinG = Math.round(day.calories * (day.macros.protein / 100) / 4);
-        const currentCarbsG = Math.round(day.calories * (day.macros.carbs / 100) / 4);
-        const currentFatsG = Math.round(day.calories * (day.macros.fats / 100) / 9);
+        const currentProteinG = day.macroGrams?.protein ?? Math.round(day.calories * (day.macros.protein / 100) / 4);
+        const currentCarbsG = day.macroGrams?.carbs ?? Math.round(day.calories * (day.macros.carbs / 100) / 4);
+        const currentFatsG = day.macroGrams?.fats ?? Math.round(day.calories * (day.macros.fats / 100) / 9);
 
-        let newProteinG = currentProteinG;
-        let newCarbsG = currentCarbsG;
-        let newFatsG = currentFatsG;
-
-        if (macro === 'protein') newProteinG = grams;
-        if (macro === 'carbs') newCarbsG = grams;
-        if (macro === 'fats') newFatsG = grams;
+        const newProteinG = macro === 'protein' ? grams : currentProteinG;
+        const newCarbsG = macro === 'carbs' ? grams : currentCarbsG;
+        const newFatsG = macro === 'fats' ? grams : currentFatsG;
 
         const newCalories = (newProteinG * 4) + (newCarbsG * 4) + (newFatsG * 9);
 
@@ -214,6 +224,11 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
             protein: newProteinPercent,
             carbs: newCarbsPercent,
             fats: newFatsPercent
+          },
+          macroGrams: {
+            protein: newProteinG,
+            carbs: newCarbsG,
+            fats: newFatsG
           }
         };
       }
@@ -572,9 +587,9 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
               ) : (
                 <div className="space-y-3">
                   {daysCalories.map((day) => {
-                    const proteinG = Math.round(day.calories * (day.macros.protein / 100) / 4);
-                    const carbsG = Math.round(day.calories * (day.macros.carbs / 100) / 4);
-                    const fatsG = Math.round(day.calories * (day.macros.fats / 100) / 9);
+                    const proteinG = day.macroGrams?.protein ?? Math.round(day.calories * (day.macros.protein / 100) / 4);
+                    const carbsG = day.macroGrams?.carbs ?? Math.round(day.calories * (day.macros.carbs / 100) / 4);
+                    const fatsG = day.macroGrams?.fats ?? Math.round(day.calories * (day.macros.fats / 100) / 9);
 
                     return (
                       <div key={day.dayOfWeek} className="bg-[rgb(23,23,23)] p-4 rounded-lg border border-[#f8c045]/10">
