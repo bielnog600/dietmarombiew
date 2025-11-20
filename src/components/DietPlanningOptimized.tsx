@@ -3,7 +3,6 @@ import { X, ChevronRight, ChevronLeft, Check, Calculator } from 'lucide-react';
 import type { User, MacroDistribution, FoodCategory } from '../types';
 import { ACTIVITY_LEVELS, calculateRecommendedCalories } from '../lib/calories';
 import { supabase } from '../lib/supabase';
-import { generateDiet } from '../lib/diet';
 
 interface DietPlanningOptimizedProps {
   isOpen: boolean;
@@ -130,29 +129,27 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
           macros
         });
 
-        if (daysCalories.length === 0) {
-          const proteinG = Math.round(adjustedCalories * (macroPercentages.protein / 100) / 4);
-          const carbsG = Math.round(adjustedCalories * (macroPercentages.carbs / 100) / 4);
-          const fatsG = Math.round(adjustedCalories * (macroPercentages.fats / 100) / 9);
+        const proteinG = Math.round(adjustedCalories * (macroPercentages.protein / 100) / 4);
+        const carbsG = Math.round(adjustedCalories * (macroPercentages.carbs / 100) / 4);
+        const fatsG = Math.round(adjustedCalories * (macroPercentages.fats / 100) / 9);
 
-          setDaysCalories(
-            dayNames.map((name, index) => ({
-              dayOfWeek: index,
-              dayName: name,
-              calories: adjustedCalories,
-              macros: {
-                protein: macroPercentages.protein,
-                carbs: macroPercentages.carbs,
-                fats: macroPercentages.fats
-              },
-              macroGrams: {
-                protein: proteinG,
-                carbs: carbsG,
-                fats: fatsG
-              }
-            }))
-          );
-        }
+        setDaysCalories(
+          dayNames.map((name, index) => ({
+            dayOfWeek: index,
+            dayName: name,
+            calories: adjustedCalories,
+            macros: {
+              protein: macroPercentages.protein,
+              carbs: macroPercentages.carbs,
+              fats: macroPercentages.fats
+            },
+            macroGrams: {
+              protein: proteinG,
+              carbs: carbsG,
+              fats: fatsG
+            }
+          }))
+        );
       }
     }
   };
@@ -369,41 +366,7 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
             name: meal.name
           }));
 
-          const { data: insertedMeals } = await supabase.from('meals').insert(mealsToInsert).select();
-
-          if (insertedMeals) {
-            const mealConfigsArray = enabledMeals.map((config, i) => ({
-              name: config.name,
-              enabled: true,
-              categories: config.categories,
-              percentage: config.percentage
-            }));
-
-            const dietPlan = await generateDiet(
-              dayData.calories,
-              macros,
-              mealConfigsArray
-            );
-
-            let foodIndex = 0;
-            for (let i = 0; i < insertedMeals.length; i++) {
-              const meal = insertedMeals[i];
-              const startIndex = Math.floor(foodIndex);
-              const endIndex = Math.floor(foodIndex + (dietPlan.length / insertedMeals.length));
-              const mealFoods = dietPlan.slice(startIndex, endIndex);
-              foodIndex = endIndex;
-
-              if (mealFoods.length > 0) {
-                await supabase.from('meal_foods').insert(
-                  mealFoods.map(food => ({
-                    meal_id: meal.id,
-                    food_id: food.id,
-                    quantity: food.portion_size / 100
-                  }))
-                );
-              }
-            }
-          }
+          await supabase.from('meals').insert(mealsToInsert).select();
         } else {
           const { data: newDiet } = await supabase
             .from('diets')
@@ -419,41 +382,7 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
               name: meal.name
             }));
 
-            const { data: insertedMeals } = await supabase.from('meals').insert(mealsToInsert).select();
-
-            if (insertedMeals) {
-              const mealConfigsArray = enabledMeals.map((config, i) => ({
-                name: config.name,
-                enabled: true,
-                categories: config.categories,
-                percentage: config.percentage
-              }));
-
-              const dietPlan = await generateDiet(
-                dayData.calories,
-                macros,
-                mealConfigsArray
-              );
-
-              let foodIndex = 0;
-              for (let i = 0; i < insertedMeals.length; i++) {
-                const meal = insertedMeals[i];
-                const startIndex = Math.floor(foodIndex);
-                const endIndex = Math.floor(foodIndex + (dietPlan.length / insertedMeals.length));
-                const mealFoods = dietPlan.slice(startIndex, endIndex);
-                foodIndex = endIndex;
-
-                if (mealFoods.length > 0) {
-                  await supabase.from('meal_foods').insert(
-                    mealFoods.map(food => ({
-                      meal_id: meal.id,
-                      food_id: food.id,
-                      quantity: food.portion_size / 100
-                    }))
-                  );
-                }
-              }
-            }
+            await supabase.from('meals').insert(mealsToInsert).select();
           }
         }
       }
