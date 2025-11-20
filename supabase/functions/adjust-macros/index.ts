@@ -136,8 +136,9 @@ Deno.serve(async (req: Request) => {
       `${idx + 1}. ${meal.name}: ${meal.targetKcal} kcal | ${meal.targetProtein}g P | ${meal.targetCarbs}g C | ${meal.targetFats}g G`
     ).join('\n');
 
-    // Gerar um número aleatório para variar as dietas
-    const randomSeed = Math.floor(Math.random() * 1000);
+    // Gerar número ÚNICO para GARANTIR variedade absoluta
+    const timestamp = Date.now();
+    const randomSeed = Math.floor(Math.random() * 1000000) + timestamp;
 
     // Detectar se é dieta baixa caloria (cutting)
     const isLowCalorie = targetCalories < 1600;
@@ -145,21 +146,35 @@ Deno.serve(async (req: Request) => {
 
     console.log(`📊 Diet analysis: ${targetCalories} kcal, Strategy: ${strategy}, Low calorie: ${isLowCalorie}, Cutting: ${isCutting}`);
 
-    const dietStyles = ['equilibrada', 'low carb', 'flexível', 'moderada em carbs', 'rica em proteína'];
-    const selectedStyle = dietStyles[randomSeed % dietStyles.length];
+    // Expandir estilos de dieta com MUITO mais variações
+    const dietStyles = [
+      'equilibrada', 'low carb', 'flexível', 'moderada em carbs', 'rica em proteína',
+      'mediterrânea', 'alta proteína', 'low fat', 'carb cycling', 'paleo',
+      'clean eating', 'flexible dieting', 'cetogênica moderada', 'plant-forward'
+    ];
+    const selectedStyle = dietStyles[Math.floor(Math.random() * dietStyles.length)];
 
-    console.log(`🎨 Selected diet style: ${selectedStyle}`);
+    console.log(`🎨 Selected diet style: ${selectedStyle} (Seed: ${randomSeed})`);
 
-    // Instruções específicas por estilo de dieta
+    // Instruções específicas por estilo de dieta (EXPANDIDO)
     const styleInstructions: Record<string, string> = {
-      'equilibrada': '⚖️ Distribua os macros de forma balanceada em todas as refeições. Use variedade de fontes.',
-      'low carb': '🥑 PRIORIZE gorduras boas e proteínas. REDUZA carboidratos (use apenas 50-70% dos carbs em vegetais, evite massas/arroz). Aumente abacate, azeite, castanhas.',
-      'flexível': '🎯 Misture TODAS as fontes disponíveis: carnes variadas, peixes, ovos, grãos, tubérculos. Seja MUITO criativo!',
-      'moderada em carbs': '🌾 Use carboidratos em 60-80% do planejado, focando em pré e pós-treino. Aumente levemente as gorduras.',
-      'rica em proteína': '💪 MAXIMIZE proteínas em TODAS as refeições. Use ovos, carnes, peixes, iogurte. Carbs moderados, gorduras baixas.'
+      'equilibrada': '⚖️ Distribua os macros de forma balanceada. Varie as fontes de proteína em cada refeição.',
+      'low carb': '🥑 PRIORIZE gorduras boas e proteínas. REDUZA carboidratos drasticamente. Use abacate, azeite, castanhas, carnes gordas.',
+      'flexível': '🎯 Misture TODAS as fontes: carnes VARIADAS, peixes DIFERENTES, ovos, grãos, tubérculos. Seja EXTREMAMENTE criativo!',
+      'moderada em carbs': '🌾 Carboidratos moderados em pré/pós-treino. Use batata doce, arroz integral. Gorduras elevadas.',
+      'rica em proteína': '💪 MAXIMIZE proteínas: ovos, frango, carne, peixe, iogurte em TODAS as refeições. Carbs baixos.',
+      'mediterrânea': '🫒 PEIXES (salmão, atum, sardinha), azeite abundante, vegetais, grãos integrais, castanhas.',
+      'alta proteína': '🥩 Foque em carnes magras, clara de ovos, frango, peixe branco. 40%+ das calorias de proteína.',
+      'low fat': '🍗 Proteínas MAGRAS (peito frango, peixe branco, clara ovos). MINIMIZE gorduras. Carbs moderados/altos.',
+      'carb cycling': '🔄 Alterne carbs altos e baixos. Hoje: ALTO em pré/pós treino, BAIXO no resto.',
+      'paleo': '🦴 Carnes, ovos, vegetais, frutas, castanhas. EVITE grãos, laticínios, processados.',
+      'clean eating': '🌱 Alimentos INTEGRAIS e não processados. Variedade de cores nos vegetais.',
+      'flexible dieting': '🎨 MÁXIMA VARIEDADE! Use alimentos diferentes a cada dia. Seja criativo!',
+      'cetogênica moderada': '🥓 Gorduras ALTAS (60-70%), proteínas moderadas, carbs MUITO baixos (<50g).',
+      'plant-forward': '🌿 Priorize vegetais, leguminosas, grãos. Proteína animal em menor quantidade.'
     };
 
-    const styleInstruction = styleInstructions[selectedStyle] || styleInstructions['equilibrada'];
+    const styleInstruction = styleInstructions[selectedStyle] || styleInstructions['flexível'];
 
     // Instruções especiais para cutting/low calorie
     let cuttingInstructions = '';
@@ -245,21 +260,53 @@ Se o banco não tiver o alimento ideal para a variedade que você quer criar:
 ✅ Exemplos: "NEW_Salmão grelhado", "NEW_Quinoa", "NEW_Iogurte desnatado"
 ✅ Sempre com valores nutricionais para 100g
 
-💡 IDEIAS DE VARIAÇÃO (use alimentos diferentes a cada dia):
-- SEGUNDA: Frango + Arroz + Brócolis
-- TERÇA: Carne moída + Batata doce + Cenoura
-- QUARTA: Salmão + Quinoa + Aspargos (sugira se não houver!)
-- QUINTA: Tilápia + Arroz integral + Couve-flor
-- SEXTA: Picanha magra + Purê de batata + Salada
-- SÁBADO: Atum + Macarrão integral + Tomate
-- DOMINGO: Peru + Arroz basmati + Pimentão
+💡 LISTA GIGANTE DE ALIMENTOS PARA VARIAR (use DIFERENTES a cada geração!):
 
-🎯 ESTRATÉGIA DE VARIEDADE:
-1. Alterne proteínas: frango → carne → peixe → ovos → repeat
-2. Alterne carbos: arroz → batata doce → aveia → massa → repeat
-3. Alterne vegetais: brócolis → couve-flor → cenoura → abobrinha → repeat
-4. Use diferentes preparos: grelhado, assado, cozido, refogado
-5. Varie frutas: banana → maçã → morango → mamão → repeat
+🍗 PROTEÍNAS - ALTERNE SEMPRE:
+• Carnes: Frango, Peito peru, Carne moída magra, Patinho, Alcatra, Filé mignon, Cupim magro
+• Peixes: Salmão, Atum, Tilápia, Bacalhau, Sardinha, Merluza, Linguado, Robalo
+• Ovos: Ovos inteiros, Claras, Omelete, Ovos cozidos, Ovos mexidos
+• Laticínios: Queijo cottage, Iogurte grego, Ricota, Queijo minas, Leite desnatado
+• Outros: Whey protein, Albumina
+
+🍚 CARBOIDRATOS - VARIE MUITO:
+• Arroz: Branco, Integral, Basmati, Negro, Selvagem, Arbório
+• Batatas: Doce, Inglesa, Baroa, Yacon, Purê
+• Massas: Macarrão integral, Penne, Espaguete, Fusilli, Lasanha
+• Grãos: Aveia, Quinoa, Granola, Amaranto, Centeio
+• Pães: Integral, Francês, Pão de forma, Brioche, Ciabatta
+• Outros: Tapioca, Cuscuz, Polenta, Mandioca
+
+🥑 GORDURAS SAUDÁVEIS:
+• Oleaginosas: Amêndoas, Castanhas, Nozes, Macadâmia, Pistache, Avelã
+• Óleos: Azeite, Óleo de coco, Óleo de abacate
+• Sementes: Chia, Linhaça, Gergelim, Girassol
+• Outros: Abacate, Pasta de amendoim, Pasta de amêndoa, Manteiga de cacau
+
+🥬 VEGETAIS - ROTACIONE CORES:
+• Verdes: Brócolis, Couve, Espinafre, Rúcula, Alface, Agrião, Aspargos
+• Alaranjados: Cenoura, Abóbora, Pimentão laranja
+• Vermelhos: Tomate, Pimentão vermelho, Beterraba, Rabanete
+• Brancos: Couve-flor, Cebola, Alho-poró, Cogumelos, Palmito
+• Outros: Abobrinha, Berinjela, Pepino, Chuchu, Vagem
+
+🍎 FRUTAS - CORES DIFERENTES:
+• Vermelhas: Morango, Framboesa, Cereja, Melancia, Maçã vermelha
+• Amarelas: Banana, Manga, Abacaxi, Maracujá, Pêssego
+• Roxas: Uva, Ameixa, Mirtilo, Açaí, Jabuticaba
+• Verdes: Kiwi, Maçã verde, Uva verde, Limão
+• Laranja: Laranja, Tangerina, Mamão, Caqui
+
+🎯 REGRA DE OURO PARA VARIEDADE:
+1. NUNCA use a mesma proteína principal 2x seguidas (segunda frango, terça NÃO frango)
+2. ALTERNE carboidratos complexos a cada dia (arroz → batata → aveia → massa)
+3. USE NO MÍNIMO 3 cores DIFERENTES de vegetais por dia
+4. VARIE as frutas: NUNCA só banana! Use morango, maçã, mamão, etc
+5. ALTERNE gorduras: castanhas → azeite → abacate → pasta amendoim
+6. USE preparos diferentes: grelhado, assado, cozido, refogado, na air fryer
+
+⚠️ PROIBIDO REPETIR: Se a última geração usou "Frango + Arroz + Brócolis",
+a próxima DEVE usar algo completamente diferente como "Salmão + Batata doce + Aspargos"!
 
 ${cuttingInstructions}
 
@@ -314,16 +361,56 @@ ${foodsList}
 
    💡 DICA IMPORTANTE: Escolha DIFERENTES opções a cada dieta gerada!
 
-2. REGRAS CRÍTICAS PARA VARIAR AS DIETAS (OBRIGATÓRIO):
-   ✅ CADA DIA DA SEMANA DEVE TER DIETA COMPLETAMENTE DIFERENTE
-   ✅ Se há alimentos listados como "JÁ USADOS", EVITE-OS ao máximo
-   ✅ Escolha proteínas DIFERENTES para cada dia (Segunda: frango, Terça: carne, Quarta: peixe, etc)
-   ✅ Varie os carboidratos (Segunda: arroz, Terça: batata doce, Quarta: macarrão, etc)
-   ✅ Se for LOW CARB: reduza arroz, massas, pães. Aumente gorduras boas (abacate, azeite, castanhas)
-   ✅ Se for FLEXÍVEL: misture TODAS as fontes disponíveis - seja MUITO criativo
-   ✅ Se for RICA EM PROTEÍNA: maximize carnes, ovos, peixes. Varie as fontes a cada dia
-   ✅ NUNCA gere a mesma combinação duas vezes - use o Random Seed para criar PADRÕES ÚNICOS
-   ✅ Pense: "Esta dieta é DIFERENTE das outras da semana?" - Se não, MUDE!
+2. REGRAS CRÍTICAS PARA VARIAR AS DIETAS (OBRIGATÓRIO - LEIA ATENTAMENTE!):
+
+   🚨 ATENÇÃO: A CADA GERAÇÃO, VOCÊ DEVE CRIAR UMA DIETA COMPLETAMENTE NOVA E DIFERENTE!
+
+   ✅ PROTEÍNAS - ROTAÇÃO OBRIGATÓRIA:
+      • Geração 1: Frango
+      • Geração 2: Carne bovina
+      • Geração 3: Salmão ou Atum
+      • Geração 4: Tilápia ou Bacalhau
+      • Geração 5: Ovos (omelete)
+      • Geração 6: Peru
+      • Geração 7: Sardinha
+      → NUNCA repita a proteína da geração anterior!
+
+   ✅ CARBOIDRATOS - ROTAÇÃO OBRIGATÓRIA:
+      • Geração 1: Arroz branco
+      • Geração 2: Batata doce
+      • Geração 3: Quinoa ou Arroz integral
+      • Geração 4: Macarrão integral
+      • Geração 5: Batata inglesa
+      • Geração 6: Aveia
+      • Geração 7: Tapioca
+      → NUNCA repita o carboidrato da geração anterior!
+
+   ✅ VEGETAIS - ROTAÇÃO OBRIGATÓRIA:
+      • Geração 1: Brócolis
+      • Geração 2: Cenoura
+      • Geração 3: Aspargos ou Couve-flor
+      • Geração 4: Abobrinha
+      • Geração 5: Espinafre
+      • Geração 6: Pimentão
+      • Geração 7: Tomate
+      → Use CORES diferentes!
+
+   ✅ FRUTAS - ROTAÇÃO OBRIGATÓRIA:
+      • Geração 1: Banana
+      • Geração 2: Morango
+      • Geração 3: Maçã
+      • Geração 4: Mamão
+      • Geração 5: Manga
+      • Geração 6: Abacaxi
+      • Geração 7: Uvas
+      → NUNCA só banana!
+
+   ✅ ESTILO DA DIETA (${selectedStyle}):
+      ${styleInstruction}
+
+   ⚠️ TESTE FINAL ANTES DE RESPONDER:
+      "Esta combinação de alimentos é DIFERENTE das últimas 5 gerações?"
+      Se a resposta for NÃO → MUDE TUDO e tente novamente!
 
 3. ERROS QUE VOCÊ DEVE EVITAR:
    ❌ NÃO gere sempre a mesma dieta
@@ -564,21 +651,24 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES!`;
     const messages = [
       {
         role: 'system',
-        content: `Você é um nutricionista expert, EXTREMAMENTE CRIATIVO e inovador em cálculos de macronutrientes.
+        content: `Você é um nutricionista expert, EXTREMAMENTE CRIATIVO, inovador e ANTI-REPETIÇÃO em cálculos de macronutrientes.
+
+🎲 MISSÃO PRINCIPAL: CRIAR DIETAS ÚNICAS E DIFERENTES A CADA GERAÇÃO!
 
 REGRAS OBRIGATÓRIAS:
 1. Responda APENAS com JSON válido, sem markdown, sem explicações
 2. Calcule EXATAMENTE as quantities para atingir os macros especificados
 3. SEJA EXTREMAMENTE CRIATIVO - NUNCA gere a mesma dieta duas vezes!
-4. Use o estilo da dieta informado para guiar suas escolhas
-5. SEMPRE varie: proteínas, carboidratos, vegetais, frutas, preparos
+4. CADA GERAÇÃO DEVE TER PROTEÍNAS, CARBOS E VEGETAIS COMPLETAMENTE DIFERENTES
+5. Use o Random Seed (${randomSeed}) como guia para escolhas únicas
 6. EVITE alimentos já usados nos outros dias da semana
-7. Adapte conforme o estilo: low carb, flexível, rica em proteína, etc.
-8. PODE sugerir novos alimentos com "newFoods" se necessário para variar
+7. Adapte conforme o estilo: ${selectedStyle}
+8. PODE E DEVE sugerir novos alimentos com "newFoods" para criar variedade
+9. Pense: "Esta é a ${Math.floor(randomSeed % 100)}ª dieta única que estou criando"
 
 ⚠️ QUANTIDADES REALISTAS EM GRAMAS (CRÍTICO):
-8. PENSE EM GRAMAS PRIMEIRO, depois converta para quantity
-9. EXEMPLO: Preciso 140g de frango → quantity = 140 / 100 (portion_size) = 1.4 ✓
+10. PENSE EM GRAMAS PRIMEIRO, depois converta para quantity
+11. EXEMPLO: Preciso 140g de frango → quantity = 140 / 100 (portion_size) = 1.4 ✓
 10. NUNCA use quantities absurdas: 0.1 banana (10g), 0.03 pasta (3g) ❌
 11. Frango/Carne: 100-250g (quantity 1.0-2.5) ✓
 12. Ovos: 200-400g = 3-6 ovos (quantity 2.0-4.0) ✓
@@ -618,9 +708,12 @@ Timestamp: ${Date.now()} - Use este número para garantir variação!`
           body: JSON.stringify({
             model: 'gpt-4o',
             messages: messages,
-            temperature: 0.95, // Máxima criatividade e variação
-            max_tokens: 3500,
-            seed: randomSeed + Date.now(), // Garantir diferentes resultados a cada chamada
+            temperature: 1.0, // MÁXIMA criatividade (valor máximo possível)
+            max_tokens: 4000,
+            top_p: 0.95, // Adiciona mais aleatoriedade
+            frequency_penalty: 1.5, // Penaliza repetições MUITO
+            presence_penalty: 1.5, // Encoraja novos tokens/alimentos
+            // Removido seed para garantir máxima variação
           }),
         });
 
