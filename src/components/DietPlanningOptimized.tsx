@@ -305,7 +305,20 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
 
     try {
       const enabledMeals = mealConfigs.filter(m => m.enabled);
-      const daysToCreate = applyToAllDays ? daysCalories : daysCalories.filter(d => d.dayOfWeek === (dayOfWeek ?? new Date().getDay()));
+
+      const daysToCreate = daysCalories.length > 0
+        ? daysCalories
+        : [{
+            dayOfWeek: dayOfWeek ?? new Date().getDay(),
+            dayName: dayNames[dayOfWeek ?? new Date().getDay()],
+            calories: calculatedValues.adjustedCalories,
+            macros: macroPercentages,
+            macroGrams: {
+              protein: calculatedValues.macros.protein,
+              carbs: calculatedValues.macros.carbs,
+              fats: calculatedValues.macros.fats
+            }
+          }];
 
       console.log('Creating diets for:', {
         applyToAllDays,
@@ -321,7 +334,7 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
       }
 
       for (const dayData of daysToCreate) {
-        const macros: MacroDistribution = {
+        const macros: MacroDistribution = dayData.macroGrams ?? {
           protein: Math.round(dayData.calories * (dayData.macros.protein / 100) / 4),
           carbs: Math.round(dayData.calories * (dayData.macros.carbs / 100) / 4),
           fats: Math.round(dayData.calories * (dayData.macros.fats / 100) / 9)
@@ -351,10 +364,9 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
 
           await supabase.from('meals').delete().eq('diet_id', existingDiet.id);
 
-          const mealsToInsert = enabledMeals.map((meal, index) => ({
+          const mealsToInsert = enabledMeals.map((meal) => ({
             diet_id: existingDiet.id,
-            name: meal.name,
-            order: index
+            name: meal.name
           }));
 
           const { data: insertedMeals } = await supabase.from('meals').insert(mealsToInsert).select();
@@ -384,10 +396,9 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
           if (newDiet) {
             await supabase.from('diet_macros').insert([{ diet_id: newDiet.id, ...macros }]);
 
-            const mealsToInsert = enabledMeals.map((meal, index) => ({
+            const mealsToInsert = enabledMeals.map((meal) => ({
               diet_id: newDiet.id,
-              name: meal.name,
-              order: index
+              name: meal.name
             }));
 
             const { data: insertedMeals } = await supabase.from('meals').insert(mealsToInsert).select();
