@@ -186,6 +186,41 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
     ));
   };
 
+  const updateDayMacroGrams = (dayOfWeek: number, macro: 'protein' | 'carbs' | 'fats', grams: number) => {
+    setDaysCalories(prev => prev.map(day => {
+      if (day.dayOfWeek === dayOfWeek) {
+        const currentProteinG = Math.round(day.calories * (day.macros.protein / 100) / 4);
+        const currentCarbsG = Math.round(day.calories * (day.macros.carbs / 100) / 4);
+        const currentFatsG = Math.round(day.calories * (day.macros.fats / 100) / 9);
+
+        let newProteinG = currentProteinG;
+        let newCarbsG = currentCarbsG;
+        let newFatsG = currentFatsG;
+
+        if (macro === 'protein') newProteinG = grams;
+        if (macro === 'carbs') newCarbsG = grams;
+        if (macro === 'fats') newFatsG = grams;
+
+        const newCalories = (newProteinG * 4) + (newCarbsG * 4) + (newFatsG * 9);
+
+        const newProteinPercent = newCalories > 0 ? Math.round((newProteinG * 4 / newCalories) * 100) : 0;
+        const newCarbsPercent = newCalories > 0 ? Math.round((newCarbsG * 4 / newCalories) * 100) : 0;
+        const newFatsPercent = newCalories > 0 ? Math.round((newFatsG * 9 / newCalories) * 100) : 0;
+
+        return {
+          ...day,
+          calories: Math.round(newCalories),
+          macros: {
+            protein: newProteinPercent,
+            carbs: newCarbsPercent,
+            fats: newFatsPercent
+          }
+        };
+      }
+      return day;
+    }));
+  };
+
   const updateMacroPercentage = (macro: 'protein' | 'carbs' | 'fats', value: number) => {
     if (applyMacrosToAllDays) {
       setMacroPercentages(prev => ({
@@ -536,21 +571,70 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {daysCalories.map((day) => (
-                    <div key={day.dayOfWeek} className="bg-[rgb(23,23,23)] p-4 rounded-lg border border-[#f8c045]/10 flex items-center justify-between">
-                      <span className="text-[#f8c045] font-semibold w-24">{day.dayName}</span>
-                      <input
-                        type="number"
-                        value={day.calories}
-                        onChange={(e) => updateDayCalories(day.dayOfWeek, Number(e.target.value))}
-                        className="w-32 bg-[rgb(28,28,28)] text-gray-300 p-2 rounded-lg border border-[#f8c045]/20 focus:outline-none focus:ring-2 focus:ring-[#f8c045]/50"
-                        min="800"
-                        max="5000"
-                        step="50"
-                      />
-                      <span className="text-gray-400 text-sm">kcal</span>
-                    </div>
-                  ))}
+                  {daysCalories.map((day) => {
+                    const proteinG = Math.round(day.calories * (day.macros.protein / 100) / 4);
+                    const carbsG = Math.round(day.calories * (day.macros.carbs / 100) / 4);
+                    const fatsG = Math.round(day.calories * (day.macros.fats / 100) / 9);
+
+                    return (
+                      <div key={day.dayOfWeek} className="bg-[rgb(23,23,23)] p-4 rounded-lg border border-[#f8c045]/10">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[#f8c045] font-semibold">{day.dayName}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-bold text-lg">{day.calories}</span>
+                            <span className="text-gray-400 text-sm">kcal</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-gray-400 text-xs mb-1">Proteína</label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={proteinG}
+                                onChange={(e) => updateDayMacroGrams(day.dayOfWeek, 'protein', Number(e.target.value))}
+                                className="w-16 bg-[rgb(28,28,28)] text-gray-300 p-2 rounded border border-[#f8c045]/20 focus:outline-none focus:ring-1 focus:ring-[#f8c045]/50 text-center text-sm"
+                                min="0"
+                              />
+                              <span className="text-gray-500 text-xs">g</span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">{day.macros.protein}% · {proteinG * 4} kcal</div>
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-400 text-xs mb-1">Carboidratos</label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={carbsG}
+                                onChange={(e) => updateDayMacroGrams(day.dayOfWeek, 'carbs', Number(e.target.value))}
+                                className="w-16 bg-[rgb(28,28,28)] text-gray-300 p-2 rounded border border-[#f8c045]/20 focus:outline-none focus:ring-1 focus:ring-[#f8c045]/50 text-center text-sm"
+                                min="0"
+                              />
+                              <span className="text-gray-500 text-xs">g</span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">{day.macros.carbs}% · {carbsG * 4} kcal</div>
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-400 text-xs mb-1">Gorduras</label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={fatsG}
+                                onChange={(e) => updateDayMacroGrams(day.dayOfWeek, 'fats', Number(e.target.value))}
+                                className="w-16 bg-[rgb(28,28,28)] text-gray-300 p-2 rounded border border-[#f8c045]/20 focus:outline-none focus:ring-1 focus:ring-[#f8c045]/50 text-center text-sm"
+                                min="0"
+                              />
+                              <span className="text-gray-500 text-xs">g</span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">{day.macros.fats}% · {fatsG * 9} kcal</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -821,11 +905,8 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
               onClick={goNext}
               disabled={
                 loading ||
-                (currentStep === 'calories' && (
-                  applyMacrosToAllDays
-                    ? macroPercentages.protein + macroPercentages.carbs + macroPercentages.fats !== 100
-                    : daysCalories.some(day => day.macros.protein + day.macros.carbs + day.macros.fats !== 100)
-                ))
+                (currentStep === 'calories' && applyToAllDays && applyMacrosToAllDays &&
+                  macroPercentages.protein + macroPercentages.carbs + macroPercentages.fats !== 100)
               }
               className="flex items-center gap-2 bg-[#f8c045] text-[rgb(23,23,23)] py-2 px-4 rounded-lg hover:bg-[#e6b041] transition font-semibold disabled:opacity-50"
             >
