@@ -81,6 +81,7 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
     if (isOpen) {
       fetchCategories();
       calculateValues();
+      setDaysCalories([]);
     }
   }, [isOpen]);
 
@@ -305,6 +306,19 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
     try {
       const enabledMeals = mealConfigs.filter(m => m.enabled);
       const daysToCreate = applyToAllDays ? daysCalories : daysCalories.filter(d => d.dayOfWeek === (dayOfWeek ?? new Date().getDay()));
+
+      console.log('Creating diets for:', {
+        applyToAllDays,
+        daysCaloriesLength: daysCalories.length,
+        daysToCreateLength: daysToCreate.length,
+        daysToCreate: daysToCreate.map(d => ({ day: d.dayName, calories: d.calories }))
+      });
+
+      if (daysToCreate.length === 0) {
+        setError('Nenhum dia para criar. Por favor, configure as calorias primeiro.');
+        setLoading(false);
+        return;
+      }
 
       for (const dayData of daysToCreate) {
         const macros: MacroDistribution = {
