@@ -372,18 +372,36 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
           const { data: insertedMeals } = await supabase.from('meals').insert(mealsToInsert).select();
 
           if (insertedMeals) {
+            const mealConfigsArray = enabledMeals.map((config, i) => ({
+              name: config.name,
+              enabled: true,
+              categories: config.categories,
+              percentage: config.percentage
+            }));
+
+            const dietPlan = await generateDiet(
+              dayData.calories,
+              macros,
+              mealConfigsArray
+            );
+
+            let foodIndex = 0;
             for (let i = 0; i < insertedMeals.length; i++) {
               const meal = insertedMeals[i];
-              const config = enabledMeals[i];
+              const startIndex = Math.floor(foodIndex);
+              const endIndex = Math.floor(foodIndex + (dietPlan.length / insertedMeals.length));
+              const mealFoods = dietPlan.slice(startIndex, endIndex);
+              foodIndex = endIndex;
 
-              const mealCalories = Math.round(dayData.calories * (config.percentage / 100));
-              const mealMacros: MacroDistribution = {
-                protein: Math.round(mealCalories * (dayData.macros.protein / 100) / 4),
-                carbs: Math.round(mealCalories * (dayData.macros.carbs / 100) / 4),
-                fats: Math.round(mealCalories * (dayData.macros.fats / 100) / 9)
-              };
-
-              await generateDiet(meal.id, mealCalories, mealMacros, config.categories);
+              if (mealFoods.length > 0) {
+                await supabase.from('meal_foods').insert(
+                  mealFoods.map(food => ({
+                    meal_id: meal.id,
+                    food_id: food.id,
+                    quantity: food.portion_size / 100
+                  }))
+                );
+              }
             }
           }
         } else {
@@ -404,18 +422,36 @@ export default function DietPlanningOptimized({ isOpen, onClose, user, onComplet
             const { data: insertedMeals } = await supabase.from('meals').insert(mealsToInsert).select();
 
             if (insertedMeals) {
+              const mealConfigsArray = enabledMeals.map((config, i) => ({
+                name: config.name,
+                enabled: true,
+                categories: config.categories,
+                percentage: config.percentage
+              }));
+
+              const dietPlan = await generateDiet(
+                dayData.calories,
+                macros,
+                mealConfigsArray
+              );
+
+              let foodIndex = 0;
               for (let i = 0; i < insertedMeals.length; i++) {
                 const meal = insertedMeals[i];
-                const config = enabledMeals[i];
+                const startIndex = Math.floor(foodIndex);
+                const endIndex = Math.floor(foodIndex + (dietPlan.length / insertedMeals.length));
+                const mealFoods = dietPlan.slice(startIndex, endIndex);
+                foodIndex = endIndex;
 
-                const mealCalories = Math.round(dayData.calories * (config.percentage / 100));
-                const mealMacros: MacroDistribution = {
-                  protein: Math.round(mealCalories * (dayData.macros.protein / 100) / 4),
-                  carbs: Math.round(mealCalories * (dayData.macros.carbs / 100) / 4),
-                  fats: Math.round(mealCalories * (dayData.macros.fats / 100) / 9)
-                };
-
-                await generateDiet(meal.id, mealCalories, mealMacros, config.categories);
+                if (mealFoods.length > 0) {
+                  await supabase.from('meal_foods').insert(
+                    mealFoods.map(food => ({
+                      meal_id: meal.id,
+                      food_id: food.id,
+                      quantity: food.portion_size / 100
+                    }))
+                  );
+                }
               }
             }
           }
