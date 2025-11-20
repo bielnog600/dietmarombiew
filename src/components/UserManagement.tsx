@@ -6,6 +6,7 @@ import DietPlanning from './DietPlanning';
 import ViewDietModal from './ViewDietModal';
 import WaterIntakeModal from './WaterIntakeModal';
 import WeeklyDietConfig from './WeeklyDietConfig';
+import WeeklyDietWizard from './WeeklyDietWizard';
 import { ACTIVITY_LEVELS } from '../lib/calories';
 import { generateDiet } from '../lib/diet';
 
@@ -34,6 +35,7 @@ function UserManagement() {
   const [showViewDietModal, setShowViewDietModal] = useState(false);
   const [showWaterIntakeModal, setShowWaterIntakeModal] = useState(false);
   const [showWeeklyDietModal, setShowWeeklyDietModal] = useState(false);
+  const [showWeeklyWizard, setShowWeeklyWizard] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedDiet, setSelectedDiet] = useState<Diet | null>(null);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<number>(1);
@@ -481,9 +483,12 @@ function UserManagement() {
                       <Calculator size={18} />
                     </button>
                     <button
-                      onClick={() => handlePlanWeeklyDiet(user.id)}
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowWeeklyWizard(true);
+                      }}
                       className="text-green-500 hover:text-green-400 transition"
-                      title="Dieta Semanal (7 dias)"
+                      title="Configurar Dieta Semanal (Assistente)"
                     >
                       <Calendar size={18} />
                     </button>
@@ -997,6 +1002,20 @@ function UserManagement() {
           }}
           user={selectedUser}
           onSubmit={handleWeeklyDietSubmit}
+        />
+      )}
+
+      {showWeeklyWizard && selectedUser && (
+        <WeeklyDietWizard
+          isOpen={showWeeklyWizard}
+          onClose={() => {
+            setShowWeeklyWizard(false);
+            setSelectedUser(null);
+          }}
+          user={selectedUser}
+          onComplete={() => {
+            fetchUsers();
+          }}
         />
       )}
     </div>
