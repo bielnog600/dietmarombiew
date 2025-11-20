@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, ChevronLeft, ChevronRight, Upload, ArrowRight, ArrowRightLeft } from 'lucide-react';
+import { X, Plus, Trash2, ChevronLeft, ChevronRight, Upload, ArrowRight, ArrowRightLeft, Edit2, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Diet, Food, MacroDistribution } from '../types';
 import AddFoodModal from './AddFoodModal';
@@ -49,6 +49,11 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
   const [allWeekDiets, setAllWeekDiets] = useState<Diet[]>([]);
   const [addToAllDays, setAddToAllDays] = useState(true);
   const [replicateToAllDays, setReplicateToAllDays] = useState(false);
+  const [editingMealId, setEditingMealId] = useState<string | null>(null);
+  const [editingMealName, setEditingMealName] = useState('');
+  const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
+  const [addingNewMeal, setAddingNewMeal] = useState(false);
+  const [newMealName, setNewMealName] = useState('');
   const { t } = useTranslation();
 
   // Initialize selectedDayOfWeek when diet changes
@@ -495,6 +500,86 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       setError('Erro ao remover alimento');
     } finally {
       setDeletingFoods(prev => ({ ...prev, [mealFoodId]: false }));
+    }
+  };
+
+  const handleEditMeal = (mealId: string, currentName: string) => {
+    setEditingMealId(mealId);
+    setEditingMealName(currentName);
+  };
+
+  const handleSaveMealName = async (mealId: string) => {
+    if (!editingMealName.trim()) {
+      setError('Nome da refeição não pode estar vazio');
+      return;
+    }
+
+    try {
+      setError('');
+      const { error: updateError } = await supabase
+        .from('meals')
+        .update({ name: editingMealName.trim() })
+        .eq('id', mealId);
+
+      if (updateError) throw updateError;
+
+      setEditingMealId(null);
+      setEditingMealName('');
+      await refreshDietData();
+    } catch (err) {
+      console.error('Error updating meal name:', err);
+      setError('Erro ao atualizar nome da refeição');
+    }
+  };
+
+  const handleDeleteMeal = async (mealId: string) => {
+    if (!confirm('Tem certeza que deseja deletar esta refeição? Todos os alimentos serão removidos.')) {
+      return;
+    }
+
+    try {
+      setDeletingMealId(mealId);
+      setError('');
+
+      const { error: deleteError } = await supabase
+        .from('meals')
+        .delete()
+        .eq('id', mealId);
+
+      if (deleteError) throw deleteError;
+
+      await refreshDietData();
+    } catch (err) {
+      console.error('Error deleting meal:', err);
+      setError('Erro ao deletar refeição');
+    } finally {
+      setDeletingMealId(null);
+    }
+  };
+
+  const handleAddNewMeal = async () => {
+    if (!newMealName.trim() || !localDiet) {
+      setError('Nome da refeição não pode estar vazio');
+      return;
+    }
+
+    try {
+      setError('');
+      const { error: insertError } = await supabase
+        .from('meals')
+        .insert([{
+          diet_id: localDiet.id,
+          name: newMealName.trim()
+        }]);
+
+      if (insertError) throw insertError;
+
+      setAddingNewMeal(false);
+      setNewMealName('');
+      await refreshDietData();
+    } catch (err) {
+      console.error('Error adding meal:', err);
+      setError('Erro ao adicionar refeição');
     }
   };
 
@@ -1168,9 +1253,56 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                 className="bg-[rgb(23,23,23)] p-6 rounded-lg border border-[#f8c045]/20"
               >
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-[#f8c045]">
-                    {meal.name || `Refeição ${index + 1}`}
-                  </h3>
+                  {editingMealId === meal.id ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="text"
+                        value={editingMealName}
+                        onChange={(e) => setEditingMealName(e.target.value)}
+                        className="flex-1 bg-[rgb(28,28,28)] text-[#f8c045] px-3 py-1 rounded border border-[#f8c045]/20"
+                        placeholder="Nome da refeição"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleSaveMealName(meal.id)}
+                        className="text-green-500 hover:text-green-400 transition"
+                        title="Salvar"
+                      >
+                        <Check size={20} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingMealId(null);
+                          setEditingMealName('');
+                        }}
+                        className="text-gray-400 hover:text-gray-300 transition"
+                        title="Cancelar"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold text-[#f8c045]">
+                        {meal.name || `Refeição ${index + 1}`}
+                      </h3>
+                      <button
+                        onClick={() => handleEditMeal(meal.id, meal.name || `Refeição ${index + 1}`)}
+                        className="text-[#f8c045]/60 hover:text-[#f8c045] transition"
+                        title="Editar nome"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMeal(meal.id)}
+                        disabled={deletingMealId === meal.id}
+                        className="text-red-500/60 hover:text-red-500 transition disabled:opacity-50"
+                        title="Deletar refeição"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center space-x-4">
                     <div className="text-sm text-gray-400">
                       {mealTotals.calories} kcal
@@ -1340,6 +1472,54 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               </div>
             );
           })}
+
+          {addingNewMeal ? (
+            <div className="bg-[rgb(23,23,23)] p-6 rounded-lg border border-[#f8c045]/20">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={newMealName}
+                  onChange={(e) => setNewMealName(e.target.value)}
+                  className="flex-1 bg-[rgb(28,28,28)] text-[#f8c045] px-3 py-2 rounded border border-[#f8c045]/20"
+                  placeholder="Nome da nova refeição"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddNewMeal();
+                    } else if (e.key === 'Escape') {
+                      setAddingNewMeal(false);
+                      setNewMealName('');
+                    }
+                  }}
+                />
+                <button
+                  onClick={handleAddNewMeal}
+                  className="text-green-500 hover:text-green-400 transition"
+                  title="Salvar"
+                >
+                  <Check size={24} />
+                </button>
+                <button
+                  onClick={() => {
+                    setAddingNewMeal(false);
+                    setNewMealName('');
+                  }}
+                  className="text-gray-400 hover:text-gray-300 transition"
+                  title="Cancelar"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingNewMeal(true)}
+              className="w-full bg-[rgb(23,23,23)] p-6 rounded-lg border border-[#f8c045]/20 hover:border-[#f8c045]/40 transition flex items-center justify-center gap-2 text-[#f8c045] hover:text-[#e6b041]"
+            >
+              <Plus size={20} />
+              <span>Adicionar Nova Refeição</span>
+            </button>
+          )}
         </div>
 
         {showAddFoodModal && selectedMealId && (
