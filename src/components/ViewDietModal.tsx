@@ -629,6 +629,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     console.log('localDiet:', localDiet?.id);
     console.log('selectedStrategy:', selectedStrategy);
     console.log('selectedDietModel:', selectedDietModel);
+    console.log('replicateToAllDays:', replicateToAllDays);
     console.log('manualSelectedFoods:', manualSelectedFoods);
 
     if (!localDiet || !selectedStrategy || !selectedDietModel) {
@@ -663,43 +664,94 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/adjust-macros`;
 
-      console.log('📡 Calling edge function:', apiUrl);
+      if (replicateToAllDays) {
+        // Aplicar em todos os dias da semana
+        console.log('🔄 Aplicando em TODOS os dias da semana');
 
-      const requestBody = {
-        dietId: localDiet.id,
-        userId: user.id,
-        strategy: selectedStrategy,
-        dietModel: selectedDietModel,
-        targetCalories: localDiet.calories,
-        targetProtein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
-        targetCarbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
-        targetFats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9),
-        manualFoods: manualFoodsData,
-      };
+        const { data: allDiets, error: fetchError } = await supabase
+          .from('diets')
+          .select('id, day_of_week, calories, macros:diet_macros(*)')
+          .eq('user_id', user.id)
+          .order('day_of_week', { ascending: true });
 
-      console.log('📤 Request body:', requestBody);
+        if (fetchError) throw fetchError;
 
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+        console.log(`📅 Found ${allDiets?.length || 0} diets to update`);
 
-      console.log('📥 Response status:', response.status);
+        for (const diet of allDiets || []) {
+          console.log(`⏳ Processing diet for day ${diet.day_of_week}...`);
 
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('❌ Edge function error:', error);
-        throw new Error(error.error || error.message || 'Failed to generate diet');
+          const requestBody = {
+            dietId: diet.id,
+            userId: user.id,
+            strategy: selectedStrategy,
+            dietModel: selectedDietModel,
+            targetCalories: diet.calories,
+            targetProtein: diet.macros?.protein || Math.round((diet.calories * 0.4) / 4),
+            targetCarbs: diet.macros?.carbs || Math.round((diet.calories * 0.3) / 4),
+            targetFats: diet.macros?.fats || Math.round((diet.calories * 0.3) / 9),
+            manualFoods: manualFoodsData,
+          };
+
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            console.error(`❌ Error updating diet for day ${diet.day_of_week}:`, error);
+            throw new Error(error.error || error.message || 'Failed to generate diet');
+          }
+
+          console.log(`✅ Diet updated for day ${diet.day_of_week}`);
+        }
+
+        alert(`✅ Dietas geradas com sucesso em ${allDiets?.length || 0} dias da semana!`);
+      } else {
+        // Aplicar apenas no dia atual
+        console.log('📡 Aplicando apenas no dia atual');
+
+        const requestBody = {
+          dietId: localDiet.id,
+          userId: user.id,
+          strategy: selectedStrategy,
+          dietModel: selectedDietModel,
+          targetCalories: localDiet.calories,
+          targetProtein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
+          targetCarbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
+          targetFats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9),
+          manualFoods: manualFoodsData,
+        };
+
+        console.log('📤 Request body:', requestBody);
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        console.log('📥 Response status:', response.status);
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('❌ Edge function error:', error);
+          throw new Error(error.error || error.message || 'Failed to generate diet');
+        }
+
+        const result = await response.json();
+        console.log('✅ Success:', result);
+
+        alert('✅ Dieta gerada com sucesso com seus alimentos!');
       }
-
-      const result = await response.json();
-      console.log('✅ Success:', result);
-
-      alert('✅ Dieta gerada com sucesso com seus alimentos!');
 
       // Limpar estados
       setShowMacroStrategyModal(false);
