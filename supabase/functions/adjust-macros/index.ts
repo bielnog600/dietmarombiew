@@ -14,9 +14,9 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
 
-    if (!openaiKey) throw new Error('OPENAI_API_KEY not configured');
+    if (!geminiKey) throw new Error('GEMINI_API_KEY not configured');
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = await req.json();
@@ -42,38 +42,33 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Seed:${seed} Style:${style}`);
 
-    const messages = [
-      {
-        role: 'system',
-        content: 'Nutricionista. Responda JSON: {"meals":[{"name":"Café","foods":[{"foodName":"Frango","quantity":1.5}]}]}. Varie alimentos.'
-      },
-      { role: 'user', content: prompt }
-    ];
+    const systemPrompt = 'Você é um nutricionista. Responda APENAS em JSON no formato: {"meals":[{"name":"Café da Manhã","foods":[{"foodName":"Frango","quantity":1.5}]}]}. Varie os alimentos entre as refeições.';
+    const fullPrompt = `${systemPrompt}\n\n${prompt}`;
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages,
-        temperature: 0.9,
-        max_tokens: 1500,
-        frequency_penalty: 0.7,
-        presence_penalty: 0.7,
-        response_format: { type: "json_object" },
+        contents: [{
+          parts: [{ text: fullPrompt }]
+        }],
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 2048,
+          responseMimeType: 'application/json'
+        }
       }),
     });
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      throw new Error(`OpenAI error: ${errorText}`);
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      throw new Error(`Gemini error: ${errorText}`);
     }
 
-    const openaiData = await openaiResponse.json();
-    let content = openaiData.choices[0].message.content.trim();
+    const geminiData = await geminiResponse.json();
+    let content = geminiData.candidates[0].content.parts[0].text.trim();
 
     // Parse robusto
     content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
