@@ -98,10 +98,30 @@ Responda APENAS com JSON no formato:
       let rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
       console.log('📝 Raw AI response:', rawText);
 
+      // Limpar a resposta da IA
       rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-      const dietPlan = JSON.parse(rawText);
-      console.log('✅ Diet plan parsed:', dietPlan);
+      // Tentar corrigir JSON malformado comum
+      rawText = rawText
+        .replace(/,\s*}/g, '}')  // Remove vírgulas antes de }
+        .replace(/,\s*]/g, ']')   // Remove vírgulas antes de ]
+        .replace(/}\s*{/g, '},{') // Adiciona vírgula entre objetos
+        .replace(/]\s*\[/g, '],['); // Adiciona vírgula entre arrays
+
+      let dietPlan;
+      try {
+        dietPlan = JSON.parse(rawText);
+        console.log('✅ Diet plan parsed:', dietPlan);
+      } catch (parseError: any) {
+        console.error('❌ Failed to parse AI response:', parseError.message);
+        console.error('📄 Raw text that failed:', rawText);
+        throw new Error(`Invalid AI response: ${parseError.message}`);
+      }
+
+      // Validar estrutura
+      if (!dietPlan.meals || !Array.isArray(dietPlan.meals)) {
+        throw new Error('Invalid diet plan structure: missing meals array');
+      }
 
       // Deletar refeições e alimentos existentes
       const { data: existingMeals } = await supabase
