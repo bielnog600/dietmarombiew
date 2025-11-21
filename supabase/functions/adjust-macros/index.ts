@@ -93,26 +93,53 @@ Responda APENAS com JSON no formato:
       }
 
       // Inserir novas refeições
+      console.log(`📝 Inserting ${dietPlan.meals.length} meals...`);
+
       for (const meal of dietPlan.meals) {
-        const { data: newMeal } = await supabase
+        console.log(`🍽️ Creating meal: ${meal.name} with ${meal.foods.length} foods`);
+
+        const { data: newMeal, error: mealError } = await supabase
           .from('meals')
           .insert({ diet_id: dietId, name: meal.name })
           .select()
           .single();
 
+        if (mealError) {
+          console.error(`❌ Error creating meal ${meal.name}:`, mealError);
+          continue;
+        }
+
         if (newMeal) {
+          console.log(`✅ Meal created: ${newMeal.id}`);
+
           for (const food of meal.foods) {
+            console.log(`🔍 Looking for food: ${food.foodName}`);
+
             const foodData = selectedFoodsData?.find((f: any) => f.name === food.foodName);
+
             if (foodData) {
-              await supabase.from('meal_foods').insert({
+              console.log(`✅ Found food: ${foodData.name} (${foodData.id})`);
+
+              const { error: foodError } = await supabase.from('meal_foods').insert({
                 meal_id: newMeal.id,
                 food_id: foodData.id,
                 quantity: food.quantity
               });
+
+              if (foodError) {
+                console.error(`❌ Error inserting food ${food.foodName}:`, foodError);
+              } else {
+                console.log(`✅ Food inserted: ${food.foodName} (${food.quantity})`);
+              }
+            } else {
+              console.error(`❌ Food not found in database: ${food.foodName}`);
+              console.log('Available foods:', selectedFoodsData?.map((f: any) => f.name));
             }
           }
         }
       }
+
+      console.log(`✅ All meals processed for diet ${dietId}`);
 
       return new Response(
         JSON.stringify({ success: true, meals: dietPlan.meals.length }),
