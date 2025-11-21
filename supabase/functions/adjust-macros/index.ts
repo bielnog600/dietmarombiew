@@ -20,7 +20,7 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = await req.json();
-    const { dietId, strategy, targetCalories, targetProtein, targetCarbs, targetFats, userId } = body;
+    const { dietId, strategy, dietModel, targetCalories, targetProtein, targetCarbs, targetFats, userId } = body;
 
     if (!dietId || !userId) throw new Error('Missing required parameters');
 
@@ -67,6 +67,37 @@ Deno.serve(async (req: Request) => {
       'mediterrânea', 'fitness', 'natural', 'caseira'
     ];
     const randomStyle = styleVariations[Math.floor(Math.random() * styleVariations.length)];
+
+    // Modelos alimentares detalhados
+    const dietModels: Record<string, string> = {
+      'low-carb': `MODELO LOW CARB:
+- Café da Manhã: Ovos (fritos na manteiga, mexidos ou cozidos), bacon artesanal, queijo amarelo (prato, mussarela, parmesão), abacate, coco seco, morango, café preto ou com creme de leite
+- Almoço: Carne vermelha (pode ter gordura), sobrecoxa de frango com pele, peixes gordos (salmão, sardinha), brócolis, couve-flor, abobrinha, espinafre, acelga, azeite de oliva, azeitonas
+- Lanche da Tarde: Castanhas, nozes, macadâmias, amêndoas, queijo em cubos, salame artesanal, ovos de codorna, coco em lascas
+- Jantar: Espaguete de abobrinha, purê de couve-flor, omelete recheado com queijo e bacon, carne moída com vagem, peixe assado`,
+
+      'balanced-cutting': `MODELO CUTTING EQUILIBRADO:
+- Priorize proteínas magras (frango, peixe, claras de ovo)
+- Carboidratos moderados de fontes integrais (aveia, batata-doce, arroz integral)
+- Vegetais em abundância em todas as refeições
+- Gorduras saudáveis em quantidade controlada (azeite, abacate, oleaginosas)`,
+
+      'high-carb': `MODELO BULKING TRADICIONAL:
+- Café da Manhã: Pão integral, tapioca, cuscuz, aveia, ovos, queijo branco (minas ou ricota), leite desnatado, iogurte natural, mamão, banana, melão
+- Lanche da Manhã: Maçã, pera, mix de castanhas (pará, caju, nozes), água de coco
+- Almoço: Arroz (integral ou branco), feijão, lentilha, grão-de-bico, batata, mandioca, frango, carne magra (patinho, alcatra), peixe, alface, tomate, cenoura, beterraba, pepino
+- Lanche da Tarde: Iogurte natural, frutas picadas, granola sem açúcar, claras de ovos, queijo minas
+- Jantar: Saladas variadas, filé de frango grelhado, omelete simples, legumes refogados`,
+
+      'balanced-bulking': `MODELO BULKING LIMPO:
+- Alto volume de alimentos de qualidade
+- Carboidratos de fontes limpas (arroz integral, batata-doce, aveia, frutas)
+- Proteínas variadas (frango, carne magra, peixe, ovos, laticínios)
+- Gorduras de qualidade (azeite, abacate, oleaginosas, peixes gordos)
+- Evitar alimentos processados`
+    };
+
+    const selectedModel = dietModel && dietModels[dietModel] ? dietModels[dietModel] : '';
 
     // Configurações específicas para cada estratégia
     let strategyConfig = {
@@ -116,25 +147,29 @@ Responda APENAS com JSON puro, sem texto adicional.`;
 📋 ESTRATÉGIA: ${strategy || 'Manutenção'}
 ${strategyConfig.focus}
 
+${selectedModel ? `\n🎨 MODELO ALIMENTAR A SEGUIR:\n${selectedModel}\n\n⚠️ IMPORTANTE: Use este modelo como REFERÊNCIA PRINCIPAL para escolher os tipos de alimentos. Priorize alimentos similares aos mencionados no modelo!\n` : ''}
+
 🥗 ALIMENTOS DISPONÍVEIS (valores por 100g):
 ${foodList}
 
 📝 INSTRUÇÕES CRÍTICAS:
 1. Crie ${strategyConfig.mealCount} refeições ${strategyConfig.mealsStyle}
 2. ${strategyConfig.distribution}
-3. Calcule as quantidades para FICAR DENTRO das metas
-4. Use porções realistas (ex: 1.5 = 150g, 0.8 = 80g)
-5. ⚠️ MÁXIMA VARIEDADE: Use alimentos DIFERENTES em CADA refeição
-6. 🎲 Seja criativo! Estilo: ${randomStyle}
-7. 🔀 Seed de aleatoriedade: ${combinedSeed}
+3. ${selectedModel ? 'SIGA O MODELO ALIMENTAR acima como referência principal' : 'Distribua equilibradamente'}
+4. Calcule as quantidades para FICAR DENTRO das metas
+5. Use porções realistas (ex: 1.5 = 150g, 0.8 = 80g)
+6. ⚠️ MÁXIMA VARIEDADE: Use alimentos DIFERENTES em CADA refeição
+7. 🎲 Seja criativo! Estilo: ${randomStyle}
+8. 🔀 Seed de aleatoriedade: ${combinedSeed}
 
 IMPORTANTE:
 - Cada quantity é em múltiplos de 100g
 - NUNCA repita alimentos entre refeições
-- Crie combinações únicas e interessantes`;
+- Crie combinações únicas e interessantes
+${selectedModel ? '- Priorize alimentos do MODELO ALIMENTAR quando disponíveis' : ''}`;
     const fullPrompt = `${systemPrompt}\n\n${prompt}`;
 
-    console.log(`🎲 Seed: ${combinedSeed} | Style: ${randomStyle} | Strategy: ${strategy || 'maintenance'} | Foods: ${selectedFoods.length}`);
+    console.log(`🎲 Seed: ${combinedSeed} | Style: ${randomStyle} | Strategy: ${strategy || 'maintenance'} | Model: ${dietModel || 'none'} | Foods: ${selectedFoods.length}`);
 
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',

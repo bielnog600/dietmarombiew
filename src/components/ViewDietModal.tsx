@@ -45,6 +45,8 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
   const [transferTargetMeal, setTransferTargetMeal] = useState<string>('');
   const [adjustingQuantities, setAdjustingQuantities] = useState(false);
   const [showMacroStrategyModal, setShowMacroStrategyModal] = useState(false);
+  const [selectedStrategy, setSelectedStrategy] = useState<'cutting' | 'bulking' | null>(null);
+  const [showDietModelModal, setShowDietModelModal] = useState(false);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState(diet?.day_of_week ?? new Date().getDay());
   const [allWeekDiets, setAllWeekDiets] = useState<Diet[]>([]);
   const [addToAllDays, setAddToAllDays] = useState(true);
@@ -613,7 +615,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
-  const handleAutoAdjustWithStrategy = async (strategy: 'cutting' | 'bulking') => {
+  const handleAutoAdjustWithStrategy = async (strategy: 'cutting' | 'bulking', dietModel?: string) => {
     if (!localDiet) return;
 
     try {
@@ -635,18 +637,20 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
         // Ajustar cada dieta com a IA, usando mesmos alimentos mas respeitando metas
         for (const diet of allDiets || []) {
-          await adjustMacrosWithAI(diet, strategy);
+          await adjustMacrosWithAI(diet, strategy, dietModel);
         }
 
         alert(`✅ Dietas ajustadas em ${allDiets?.length || 0} dias da semana!`);
       } else {
         // Ajustar apenas o dia atual
-        await adjustMacrosWithAI(localDiet, strategy);
+        await adjustMacrosWithAI(localDiet, strategy, dietModel);
         alert('✅ Dieta ajustada com sucesso!');
       }
 
-      // Fechar modal de estratégia
+      // Fechar modals
       setShowMacroStrategyModal(false);
+      setShowDietModelModal(false);
+      setSelectedStrategy(null);
 
       // Recarregar dados da dieta
       await refreshDietData();
@@ -1601,6 +1605,91 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           />
         )}
 
+        {showDietModelModal && selectedStrategy && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+            <div className="bg-[rgb(23,23,23)] border border-gray-700 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold text-white mb-2">
+                Escolha o Modelo Alimentar - {selectedStrategy === 'cutting' ? 'Cutting' : 'Bulking'}
+              </h3>
+              <p className="text-gray-400 text-sm mb-4">
+                Selecione o modelo que a IA usará como referência para gerar suas dietas:
+              </p>
+
+              {selectedStrategy === 'cutting' && (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => handleAutoAdjustWithStrategy('cutting', 'low-carb')}
+                    disabled={generatingDiet}
+                    className="w-full p-4 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="font-bold mb-2 text-lg">🥩 Low Carb (Baixo Carboidrato)</div>
+                    <div className="text-sm space-y-1 opacity-90">
+                      <div><strong>Café da Manhã:</strong> Ovos (fritos, mexidos, cozidos), bacon artesanal, queijo amarelo, abacate, coco seco, morango, café preto</div>
+                      <div><strong>Almoço:</strong> Carne vermelha, sobrecoxa com pele, peixes gordos (salmão, sardinha), brócolis, couve-flor, abobrinha, espinafre, azeite</div>
+                      <div><strong>Lanche:</strong> Castanhas, nozes, macadâmias, amêndoas, queijo em cubos, salame, ovos de codorna, coco em lascas</div>
+                      <div><strong>Jantar:</strong> Espaguete de abobrinha, purê de couve-flor, omelete com queijo e bacon, carne moída com vagem</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleAutoAdjustWithStrategy('cutting', 'balanced-cutting')}
+                    disabled={generatingDiet}
+                    className="w-full p-4 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="font-bold mb-2 text-lg">⚖️ Cutting Equilibrado</div>
+                    <div className="text-sm opacity-90">
+                      Modelo balanceado com carboidratos moderados, proteínas altas e variedade de alimentos limpos
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {selectedStrategy === 'bulking' && (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => handleAutoAdjustWithStrategy('bulking', 'high-carb')}
+                    disabled={generatingDiet}
+                    className="w-full p-4 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="font-bold mb-2 text-lg">💪 Bulking Tradicional (Alto Carboidrato)</div>
+                    <div className="text-sm space-y-1 opacity-90">
+                      <div><strong>Café da Manhã:</strong> Pão integral, tapioca, cuscuz, aveia, ovos, queijo branco, leite desnatado, iogurte natural, mamão, banana</div>
+                      <div><strong>Lanche Manhã:</strong> Maçã, pera, mix de castanhas, água de coco</div>
+                      <div><strong>Almoço:</strong> Arroz (integral/branco), feijão, lentilha, grão-de-bico, batata, mandioca, frango, carne magra, peixe, saladas</div>
+                      <div><strong>Lanche Tarde:</strong> Iogurte natural, frutas picadas, granola sem açúcar, claras de ovos, queijo minas</div>
+                      <div><strong>Jantar:</strong> Saladas variadas, filé de frango grelhado, omelete simples, legumes refogados</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleAutoAdjustWithStrategy('bulking', 'balanced-bulking')}
+                    disabled={generatingDiet}
+                    className="w-full p-4 rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="font-bold mb-2 text-lg">🍽️ Bulking Limpo</div>
+                    <div className="text-sm opacity-90">
+                      Ganho de massa com foco em alimentos de qualidade, menos processados e fontes limpas de carboidratos
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowDietModelModal(false);
+                    setSelectedStrategy(null);
+                  }}
+                  disabled={generatingDiet}
+                  className="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition disabled:opacity-50"
+                >
+                  Voltar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showMacroStrategyModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-[rgb(23,23,23)] border border-gray-700 rounded-lg p-6 max-w-md w-full">
@@ -1611,12 +1700,15 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
               <div className="space-y-3 mb-4">
                 <button
-                  onClick={() => handleAutoAdjustQuantities('cutting')}
+                  onClick={() => {
+                    setSelectedStrategy('cutting');
+                    setShowDietModelModal(true);
+                  }}
                   disabled={generatingDiet}
                   className="w-full p-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="font-bold mb-1">
-                    {generatingDiet ? '⏳ Gerando dieta...' : 'Cutting'}
+                    Cutting
                   </div>
                   <div className="text-sm opacity-90">
                     Distribuição otimizada para perda de gordura e manutenção muscular
@@ -1624,12 +1716,15 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                 </button>
 
                 <button
-                  onClick={() => handleAutoAdjustQuantities('bulking')}
+                  onClick={() => {
+                    setSelectedStrategy('bulking');
+                    setShowDietModelModal(true);
+                  }}
                   disabled={generatingDiet}
                   className="w-full p-4 rounded-lg bg-green-600 hover:bg-green-700 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="font-bold mb-1">
-                    {generatingDiet ? '⏳ Gerando dieta...' : 'Bulking'}
+                    Bulking
                   </div>
                   <div className="text-sm opacity-90">
                     Distribuição otimizada para ganho de massa muscular
