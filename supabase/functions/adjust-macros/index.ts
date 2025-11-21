@@ -24,53 +24,108 @@ Deno.serve(async (req: Request) => {
 
     if (!dietId || !userId) throw new Error('Missing required parameters');
 
-    // Buscar alimentos com valores nutricionais completos
-    const { data: allFoods } = await supabase.from('foods').select('id,name,protein,carbs,fats,calories').limit(30);
+    // Buscar TODOS os alimentos disponíveis
+    const { data: allFoods } = await supabase
+      .from('foods')
+      .select('id,name,protein,carbs,fats,calories')
+      .eq('user_id', userId);
+
     if (!allFoods || allFoods.length === 0) throw new Error('No foods found');
 
+    // Embaralhar alimentos para garantir variedade a cada requisição
+    const shuffled = [...allFoods].sort(() => Math.random() - 0.5);
+
+    // Selecionar 30-40 alimentos aleatórios
+    const randomCount = 30 + Math.floor(Math.random() * 11);
+    const selectedFoods = shuffled.slice(0, Math.min(randomCount, shuffled.length));
+
     // Criar lista detalhada dos alimentos com valores nutricionais
-    const foodList = allFoods.map(f =>
+    const foodList = selectedFoods.map(f =>
       `${f.name}(${f.calories || Math.round((f.protein*4)+(f.carbs*4)+(f.fats*9))}kcal,${f.protein}P,${f.carbs}C,${f.fats}F/100g)`
     ).join(', ');
 
     const foodsMap = new Map(allFoods.map(f => [f.name.toLowerCase(), f.id]));
 
-    // Random seed para variação
-    const seed = Date.now() % 10000;
+    // Múltiplos seeds de aleatoriedade
+    const timeSeed = Date.now();
+    const randomSeed = Math.floor(Math.random() * 100000);
+    const combinedSeed = timeSeed + randomSeed;
 
-    const systemPrompt = `Você é um nutricionista especializado em cálculo preciso de porções.
+    // Variações de estilo para cada geração
+    const styleVariations = [
+      'minimalista', 'diversificada', 'tradicional', 'moderna',
+      'rica em vegetais', 'proteica', 'equilibrada', 'low carb moderado',
+      'mediterrânea', 'fitness', 'natural', 'caseira'
+    ];
+    const randomStyle = styleVariations[Math.floor(Math.random() * styleVariations.length)];
+
+    // Configurações específicas para cada estratégia
+    let strategyConfig = {
+      mealCount: '5-6',
+      distribution: 'equilibrada',
+      focus: '',
+      mealsStyle: ''
+    };
+
+    if (strategy === 'cutting') {
+      strategyConfig = {
+        mealCount: '5-6',
+        distribution: 'Foque em PROTEÍNAS e vegetais, reduza carboidratos simples',
+        focus: 'Priorize alimentos com alto teor proteico e baixas calorias. Use vegetais em abundância.',
+        mealsStyle: 'Refeições leves e frequentes para saciedade'
+      };
+    } else if (strategy === 'bulking') {
+      strategyConfig = {
+        mealCount: '4-5',
+        distribution: 'Foque em CARBOIDRATOS complexos e proteínas',
+        focus: 'Priorize alimentos calóricos e ricos em carboidratos. Inclua boas gorduras.',
+        mealsStyle: 'Refeições abundantes com boas fontes de energia'
+      };
+    }
+
+    const systemPrompt = `Você é um nutricionista criativo especializado em cálculo preciso de porções.
 
 REGRAS CRÍTICAS:
 1. As quantidades são em GRAMAS (100g = 1.0)
 2. NUNCA ultrapasse as metas de calorias e macros
 3. Calcule as porções com PRECISÃO para ficar DENTRO ou ABAIXO das metas
 4. Use porções pequenas (0.5, 0.8, 1.2) para controle fino
-5. Varie os alimentos entre refeições
+5. VARIE MUITO os alimentos entre refeições - NUNCA repita o mesmo alimento
+6. Seja CRIATIVO e use combinações diferentes a cada geração
 
 FORMATO JSON OBRIGATÓRIO:
 {"meals":[{"name":"Café da Manhã","foods":[{"foodName":"Frango","quantity":1.5}]}]}
 
 Responda APENAS com JSON puro, sem texto adicional.`;
 
-    const prompt = `META DIÁRIA (NÃO ULTRAPASSAR):
+    const prompt = `🎯 META DIÁRIA (NÃO ULTRAPASSAR):
 - Calorias: ${targetCalories} kcal
 - Proteínas: ${targetProtein}g
 - Carboidratos: ${targetCarbs}g
 - Gorduras: ${targetFats}g
 
-ALIMENTOS DISPONÍVEIS (valores por 100g):
+📋 ESTRATÉGIA: ${strategy || 'Manutenção'}
+${strategyConfig.focus}
+
+🥗 ALIMENTOS DISPONÍVEIS (valores por 100g):
 ${foodList}
 
-INSTRUÇÕES:
-1. Crie 5-6 refeições balanceadas
-2. Calcule as quantidades em gramas para FICAR DENTRO das metas
-3. Distribua os macros proporcionalmente entre as refeições
+📝 INSTRUÇÕES CRÍTICAS:
+1. Crie ${strategyConfig.mealCount} refeições ${strategyConfig.mealsStyle}
+2. ${strategyConfig.distribution}
+3. Calcule as quantidades para FICAR DENTRO das metas
 4. Use porções realistas (ex: 1.5 = 150g, 0.8 = 80g)
-5. Varie os alimentos entre as refeições (seed: ${seed})
-6. ${strategy || 'Distribua equilibradamente'}
+5. ⚠️ MÁXIMA VARIEDADE: Use alimentos DIFERENTES em CADA refeição
+6. 🎲 Seja criativo! Estilo: ${randomStyle}
+7. 🔀 Seed de aleatoriedade: ${combinedSeed}
 
-IMPORTANTE: Cada quantity é em múltiplos de 100g. Se um alimento tem 30P/100g e você quer 45g de proteína, use quantity: 1.5`;
+IMPORTANTE:
+- Cada quantity é em múltiplos de 100g
+- NUNCA repita alimentos entre refeições
+- Crie combinações únicas e interessantes`;
     const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+
+    console.log(`🎲 Seed: ${combinedSeed} | Style: ${randomStyle} | Strategy: ${strategy || 'maintenance'} | Foods: ${selectedFoods.length}`);
 
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
@@ -82,8 +137,10 @@ IMPORTANTE: Cada quantity é em múltiplos de 100g. Se um alimento tem 30P/100g 
           parts: [{ text: fullPrompt }]
         }],
         generationConfig: {
-          temperature: 0.5,
-          maxOutputTokens: 3072
+          temperature: 1.2,
+          topP: 0.95,
+          topK: 64,
+          maxOutputTokens: 4096
         }
       }),
     });
@@ -130,7 +187,7 @@ IMPORTANTE: Cada quantity é em múltiplos de 100g. Se um alimento tem 30P/100g 
       }
     }
 
-    console.log(`✅ ${result.meals.length} meals | Total: ${Math.round(totalCals)}kcal ${Math.round(totalProt)}P ${Math.round(totalCarbs)}C ${Math.round(totalFats)}F`);
+    console.log(`✅ ${result.meals.length} meals | Total: ${Math.round(totalCals)}kcal ${Math.round(totalProt)}P ${Math.round(totalCarbs)}C ${Math.round(totalFats)}F | Target: ${targetCalories}kcal ${targetProtein}P ${targetCarbs}C ${targetFats}F`);
 
     // Converter foodName para foodId
     for (const meal of result.meals) {
