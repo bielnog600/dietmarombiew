@@ -20,10 +20,107 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = await req.json();
-    const { dietId, strategy, dietModel, targetCalories, targetProtein, targetCarbs, targetFats, userId } = body;
+    const { dietId, strategy, dietModel, targetCalories, targetProtein, targetCarbs, targetFats, userId, manualFoods } = body;
 
     if (!dietId || !userId) throw new Error('Missing required parameters');
 
+    // Se manualFoods foi enviado, processar seleção manual
+    if (manualFoods && Array.isArray(manualFoods) && manualFoods.length > 0) {
+      console.log(`🎯 Modo manual: ${manualFoods.length} refeições com alimentos pré-selecionados`);
+
+      // Buscar informações completas dos alimentos selecionados
+      const allFoodIds = manualFoods.flatMap((meal: any) => meal.foods.map((f: any) => f.foodId));
+      const { data: selectedFoodsData } = await supabase
+        .from('foods')
+        .select('id,name,protein,carbs,fats,calories')
+        .in('id', allFoodIds);
+
+      // Criar prompt específico para ajustar quantidades
+      const mealsPrompt = manualFoods.map((meal: any) => {
+        const foodsList = meal.foods.map((f: any) => {
+          const foodData = selectedFoodsData?.find((fd: any) => fd.id === f.foodId);
+          return `  - ${foodData?.name}: ${f.initialQuantity * 100}g inicial (P:${foodData?.protein}g C:${foodData?.carbs}g G:${foodData?.fats}g por 100g)`;
+        }).join('\n');
+        return `${meal.mealName}:\n${foodsList}`;
+      }).join('\n\n');
+
+      const manualPrompt = `🎯 META DIÁRIA (NÃO ULTRAPASSAR):
+- Calorias: ${targetCalories} kcal
+- Proteínas: ${targetProtein}g
+- Carboidratos: ${targetCarbs}g
+- Gorduras: ${targetFats}g
+
+📋 ESTRATÉGIA: ${strategy || 'Manutenção'}
+
+👨‍🍳 ALIMENTOS PRÉ-SELECIONADOS PELO USUÁRIO:
+${mealsPrompt}
+
+📝 SUA TAREFA:
+1. Use EXATAMENTE os alimentos que o usuário selecionou para cada refeição
+2. AJUSTE APENAS AS QUANTIDADES para bater nas metas nutricionais
+3. Mantenha os nomes das refeições como fornecidos
+4. Quantity é em múltiplos de 100g (ex: 1.5 = 150g)
+5. Tente ficar o mais próximo possível das metas sem ultrapassar
+
+Responda APENAS com JSON no formato:
+{"meals":[{"name":"Nome da Refeição","foods":[{"foodName":"Nome Exato","quantity":1.5}]}]}`;
+
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: manualPrompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 8000 }
+        })
+      });
+
+      const geminiData = await geminiResponse.json();
+      let rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      const dietPlan = JSON.parse(rawText);
+
+      // Deletar refeições e alimentos existentes
+      const { data: existingMeals } = await supabase
+        .from('meals')
+        .select('id')
+        .eq('diet_id', dietId);
+
+      if (existingMeals && existingMeals.length > 0) {
+        const mealIds = existingMeals.map((m: any) => m.id);
+        await supabase.from('meal_foods').delete().in('meal_id', mealIds);
+        await supabase.from('meals').delete().in('id', mealIds);
+      }
+
+      // Inserir novas refeições
+      for (const meal of dietPlan.meals) {
+        const { data: newMeal } = await supabase
+          .from('meals')
+          .insert({ diet_id: dietId, name: meal.name })
+          .select()
+          .single();
+
+        if (newMeal) {
+          for (const food of meal.foods) {
+            const foodData = selectedFoodsData?.find((f: any) => f.name === food.foodName);
+            if (foodData) {
+              await supabase.from('meal_foods').insert({
+                meal_id: newMeal.id,
+                food_id: foodData.id,
+                quantity: food.quantity
+              });
+            }
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, meals: dietPlan.meals.length }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Modo automático (IA escolhe tudo)
     // Buscar TODOS os alimentos disponíveis
     const { data: allFoods, error: foodsError } = await supabase
       .from('foods')

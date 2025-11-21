@@ -5,6 +5,7 @@ import type { Diet, Food, MacroDistribution } from '../types';
 import AddFoodModal from './AddFoodModal';
 import PasteDietModal from './PasteDietModal';
 import { FoodSubstitutionModal } from './FoodSubstitutionModal';
+import ManualMealSelectionModal from './ManualMealSelectionModal';
 import { useTranslation } from '../translations';
 import { generateDiet } from '../lib/diet';
 import { adjustMacrosWithStrategy } from '../lib/macroAdjust';
@@ -47,6 +48,13 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
   const [showMacroStrategyModal, setShowMacroStrategyModal] = useState(false);
   const [selectedStrategy, setSelectedStrategy] = useState<'cutting' | 'bulking' | null>(null);
   const [showDietModelModal, setShowDietModelModal] = useState(false);
+  const [selectedDietModel, setSelectedDietModel] = useState<string | null>(null);
+  const [showGenerationModeModal, setShowGenerationModeModal] = useState(false);
+  const [showManualMealSelection, setShowManualMealSelection] = useState(false);
+  const [manualMealStep, setManualMealStep] = useState(0);
+  const [manualMealNames, setManualMealNames] = useState<string[]>([]);
+  const [manualSelectedFoods, setManualSelectedFoods] = useState<Record<string, Array<{foodId: string, quantity: number}>>>({});
+  const [allFoods, setAllFoods] = useState<Food[]>([]);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState(diet?.day_of_week ?? new Date().getDay());
   const [allWeekDiets, setAllWeekDiets] = useState<Diet[]>([]);
   const [addToAllDays, setAddToAllDays] = useState(true);
@@ -64,6 +72,25 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       setSelectedDayOfWeek(diet.day_of_week);
     }
   }, [diet?.id]);
+
+  // Load all foods
+  useEffect(() => {
+    const loadAllFoods = async () => {
+      try {
+        const { data: foods, error: foodsError } = await supabase
+          .from('foods')
+          .select('*, food_categories(*)')
+          .order('name');
+
+        if (foodsError) throw foodsError;
+        setAllFoods(foods || []);
+      } catch (err) {
+        console.error('Error loading foods:', err);
+      }
+    };
+
+    loadAllFoods();
+  }, []);
 
   // Load all week diets
   useEffect(() => {
@@ -594,6 +621,72 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     } catch (err) {
       console.error('Error adding meal:', err);
       setError('Erro ao adicionar refeição');
+    }
+  };
+
+  const handleManualDietGeneration = async () => {
+    if (!localDiet || !selectedStrategy || !selectedDietModel) return;
+
+    try {
+      setError('');
+      setGeneratingDiet(true);
+      setShowManualMealSelection(false);
+
+      // Preparar dados dos alimentos selecionados manualmente
+      const manualFoodsData = Object.entries(manualSelectedFoods).map(([mealName, foods]) => ({
+        mealName,
+        foods: foods.map(f => ({
+          foodId: f.foodId,
+          initialQuantity: f.quantity
+        }))
+      }));
+
+      // Chamar edge function com os alimentos selecionados
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/adjust-macros`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dietId: localDiet.id,
+          userId: user.id,
+          strategy: selectedStrategy,
+          dietModel: selectedDietModel,
+          targetCalories: localDiet.calories,
+          targetProtein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
+          targetCarbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
+          targetFats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9),
+          manualFoods: manualFoodsData,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate diet');
+      }
+
+      alert('✅ Dieta gerada com sucesso com seus alimentos!');
+
+      // Limpar estados
+      setShowMacroStrategyModal(false);
+      setSelectedStrategy(null);
+      setSelectedDietModel(null);
+      setManualSelectedFoods({});
+      setManualMealStep(0);
+
+      // Recarregar dados
+      await refreshDietData();
+    } catch (err) {
+      console.error('Error generating manual diet:', err);
+      setError('Erro ao gerar dieta: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+    } finally {
+      setGeneratingDiet(false);
     }
   };
 
@@ -1618,7 +1711,10 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               {selectedStrategy === 'cutting' && (
                 <div className="space-y-3">
                   <button
-                    onClick={() => handleAutoAdjustWithStrategy('cutting', 'low-carb')}
+                    onClick={() => {
+                      setSelectedDietModel('low-carb');
+                      setShowGenerationModeModal(true);
+                    }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1632,7 +1728,10 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   </button>
 
                   <button
-                    onClick={() => handleAutoAdjustWithStrategy('cutting', 'balanced-cutting')}
+                    onClick={() => {
+                      setSelectedDietModel('balanced-cutting');
+                      setShowGenerationModeModal(true);
+                    }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1647,7 +1746,10 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               {selectedStrategy === 'bulking' && (
                 <div className="space-y-3">
                   <button
-                    onClick={() => handleAutoAdjustWithStrategy('bulking', 'high-carb')}
+                    onClick={() => {
+                      setSelectedDietModel('high-carb');
+                      setShowGenerationModeModal(true);
+                    }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1662,7 +1764,10 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   </button>
 
                   <button
-                    onClick={() => handleAutoAdjustWithStrategy('bulking', 'balanced-bulking')}
+                    onClick={() => {
+                      setSelectedDietModel('balanced-bulking');
+                      setShowGenerationModeModal(true);
+                    }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1679,6 +1784,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   onClick={() => {
                     setShowDietModelModal(false);
                     setSelectedStrategy(null);
+                    setSelectedDietModel(null);
                   }}
                   disabled={generatingDiet}
                   className="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition disabled:opacity-50"
@@ -1686,6 +1792,69 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   Voltar
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {showGenerationModeModal && selectedStrategy && selectedDietModel && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4">
+            <div className="bg-[rgb(23,23,23)] border border-gray-700 rounded-lg p-6 max-w-lg w-full">
+              <h3 className="text-xl font-bold text-white mb-2">
+                Modo de Geração da Dieta
+              </h3>
+              <p className="text-gray-400 text-sm mb-6">
+                Escolha como deseja criar sua dieta:
+              </p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowGenerationModeModal(false);
+                    handleAutoAdjustWithStrategy(selectedStrategy, selectedDietModel);
+                  }}
+                  disabled={generatingDiet}
+                  className="w-full p-4 rounded-lg bg-gradient-to-r from-[#f8c045] to-orange-500 hover:from-orange-500 hover:to-[#f8c045] text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">🤖</span>
+                    <div className="font-bold text-lg">IA Automática</div>
+                  </div>
+                  <div className="text-sm opacity-90 ml-11">
+                    A IA escolhe todos os alimentos e quantidades automaticamente seguindo o modelo selecionado
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowGenerationModeModal(false);
+                    setShowDietModelModal(false);
+                    setManualMealStep(0);
+                    setManualMealNames(['Café da Manhã', 'Lanche da Manhã', 'Almoço', 'Lanche da Tarde', 'Jantar']);
+                    setManualSelectedFoods({});
+                    setShowManualMealSelection(true);
+                  }}
+                  disabled={generatingDiet}
+                  className="w-full p-4 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">👨‍🍳</span>
+                    <div className="font-bold text-lg">Seleção Manual</div>
+                  </div>
+                  <div className="text-sm opacity-90 ml-11">
+                    Você escolhe os alimentos para cada refeição e a IA ajusta as quantidades para bater nas metas
+                  </div>
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowGenerationModeModal(false);
+                }}
+                disabled={generatingDiet}
+                className="w-full mt-6 px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition disabled:opacity-50"
+              >
+                Voltar
+              </button>
             </div>
           </div>
         )}
@@ -1777,6 +1946,27 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
             </div>
           </div>
         )}
+
+        <ManualMealSelectionModal
+          isOpen={showManualMealSelection}
+          onClose={() => {
+            setShowManualMealSelection(false);
+            setManualMealStep(0);
+            setManualSelectedFoods({});
+          }}
+          mealNames={manualMealNames}
+          currentStep={manualMealStep}
+          onStepChange={setManualMealStep}
+          selectedFoods={manualSelectedFoods}
+          onFoodSelection={(mealName, foods) => {
+            setManualSelectedFoods(prev => ({
+              ...prev,
+              [mealName]: foods
+            }));
+          }}
+          allFoods={allFoods}
+          onFinish={handleManualDietGeneration}
+        />
       </div>
     </div>
   );
