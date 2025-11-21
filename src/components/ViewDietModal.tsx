@@ -161,7 +161,9 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     try {
       setError('');
 
-      // Reload all week diets
+      console.log('🔄 Refreshing diet data from database...');
+
+      // Reload all week diets - força fresh data do servidor
       const { data: diets, error: fetchError } = await supabase
         .from('diets')
         .select(`
@@ -181,11 +183,19 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       if (fetchError) throw fetchError;
 
       if (diets) {
+        console.log(`✅ Loaded ${diets.length} diets from database`);
+        diets.forEach(d => {
+          const mealCount = d.meals?.length || 0;
+          const foodCount = d.meals?.reduce((sum: number, m: any) => sum + (m.meal_foods?.length || 0), 0) || 0;
+          console.log(`  📅 Day ${d.day_of_week}: ${mealCount} meals, ${foodCount} foods`);
+        });
+
         setAllWeekDiets(diets);
 
         // Find and set the current day's diet
         const currentDayDiet = diets.find(d => d.day_of_week === selectedDayOfWeek);
         if (currentDayDiet) {
+          console.log(`📌 Setting current day (${selectedDayOfWeek}) with ${currentDayDiet.meals?.length || 0} meals`);
           setLocalDiet(currentDayDiet);
           setPreviewTotals({});
           if (currentDayDiet.macros) {
@@ -668,7 +678,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         // Aplicar em todos os dias da semana
         console.log('🔄 Aplicando em TODOS os dias da semana');
 
-        const { data: allDiets, error: fetchError } = await supabase
+        const { data: fetchedDiets, error: fetchError } = await supabase
           .from('diets')
           .select('id, day_of_week, calories, macros:diet_macros(*)')
           .eq('user_id', user.id)
@@ -676,10 +686,13 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
         if (fetchError) throw fetchError;
 
-        console.log(`📅 Found ${allDiets?.length || 0} existing diets`);
+        console.log(`📅 Found ${fetchedDiets?.length || 0} existing diets`);
+
+        // Criar array mutável para adicionar novas dietas
+        let allDiets = [...(fetchedDiets || [])];
 
         // Criar dietas para dias que não existem (0 = Domingo, 6 = Sábado)
-        const existingDays = new Set((allDiets || []).map(d => d.day_of_week));
+        const existingDays = new Set(allDiets.map(d => d.day_of_week));
         const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
         for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
@@ -711,9 +724,6 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               });
 
               // Adicionar à lista de dietas
-              if (!allDiets) {
-                allDiets = [];
-              }
               allDiets.push({
                 ...newDiet,
                 macros: {
@@ -729,7 +739,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         }
 
         // Reordenar dietas por dia da semana
-        allDiets?.sort((a, b) => a.day_of_week - b.day_of_week);
+        allDiets.sort((a, b) => a.day_of_week - b.day_of_week);
 
         console.log(`📅 Total diets to update: ${allDiets?.length || 0}`);
 
@@ -774,7 +784,14 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
           const result = await response.json();
           console.log(`✅ Diet updated for day ${diet.day_of_week}:`, result);
+
+          // Pequeno delay entre requisições para evitar sobrecarga
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
+
+        // Aguardar um pouco antes de recarregar para garantir que todas as mudanças foram salvas
+        console.log('⏳ Aguardando finalização de todas as operações...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         alert(`✅ Dietas geradas com sucesso em ${allDiets?.length || 0} dias da semana!`);
       } else {
