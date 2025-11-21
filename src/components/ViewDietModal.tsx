@@ -690,7 +690,6 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               .from('diets')
               .insert({
                 user_id: user.id,
-                name: `Dieta ${daysOfWeek[dayOfWeek]}`,
                 calories: localDiet.calories,
                 day_of_week: dayOfWeek
               })
