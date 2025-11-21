@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
     const systemPrompt = 'Você é um nutricionista. Responda APENAS em JSON no formato: {"meals":[{"name":"Café da Manhã","foods":[{"foodName":"Frango","quantity":1.5}]}]}. Varie os alimentos entre as refeições.';
     const fullPrompt = `${systemPrompt}\n\n${prompt}`;
 
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`, {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -56,8 +56,7 @@ Deno.serve(async (req: Request) => {
         }],
         generationConfig: {
           temperature: 0.9,
-          maxOutputTokens: 2048,
-          responseMimeType: 'application/json'
+          maxOutputTokens: 2048
         }
       }),
     });
