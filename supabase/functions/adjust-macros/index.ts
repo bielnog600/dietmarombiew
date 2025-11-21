@@ -27,13 +27,23 @@ Deno.serve(async (req: Request) => {
     // Se manualFoods foi enviado, processar seleção manual
     if (manualFoods && Array.isArray(manualFoods) && manualFoods.length > 0) {
       console.log(`🎯 Modo manual: ${manualFoods.length} refeições com alimentos pré-selecionados`);
+      console.log('📋 Manual foods received:', JSON.stringify(manualFoods, null, 2));
 
       // Buscar informações completas dos alimentos selecionados
       const allFoodIds = manualFoods.flatMap((meal: any) => meal.foods.map((f: any) => f.foodId));
-      const { data: selectedFoodsData } = await supabase
+      console.log(`🔍 Looking for ${allFoodIds.length} food IDs:`, allFoodIds);
+
+      const { data: selectedFoodsData, error: foodsFetchError } = await supabase
         .from('foods')
         .select('id,name,protein,carbs,fats,calories')
         .in('id', allFoodIds);
+
+      if (foodsFetchError) {
+        console.error('❌ Error fetching foods:', foodsFetchError);
+        throw new Error(`Failed to fetch foods: ${foodsFetchError.message}`);
+      }
+
+      console.log(`✅ Found ${selectedFoodsData?.length || 0} foods:`, selectedFoodsData?.map(f => f.name));
 
       // Criar prompt específico para ajustar quantidades
       const mealsPrompt = manualFoods.map((meal: any) => {
@@ -65,6 +75,8 @@ ${mealsPrompt}
 Responda APENAS com JSON no formato:
 {"meals":[{"name":"Nome da Refeição","foods":[{"foodName":"Nome Exato","quantity":1.5}]}]}`;
 
+      console.log('📤 Sending prompt to Gemini AI...');
+
       const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,11 +86,22 @@ Responda APENAS com JSON no formato:
         })
       });
 
+      if (!geminiResponse.ok) {
+        const errorText = await geminiResponse.text();
+        console.error('❌ Gemini API error:', errorText);
+        throw new Error(`Gemini API failed: ${geminiResponse.status}`);
+      }
+
       const geminiData = await geminiResponse.json();
+      console.log('📥 Gemini response received');
+
       let rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('📝 Raw AI response:', rawText);
+
       rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
       const dietPlan = JSON.parse(rawText);
+      console.log('✅ Diet plan parsed:', dietPlan);
 
       // Deletar refeições e alimentos existentes
       const { data: existingMeals } = await supabase
