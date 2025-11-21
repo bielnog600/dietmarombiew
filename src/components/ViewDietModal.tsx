@@ -676,10 +676,66 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
         if (fetchError) throw fetchError;
 
-        console.log(`📅 Found ${allDiets?.length || 0} diets to update`);
+        console.log(`📅 Found ${allDiets?.length || 0} existing diets`);
+
+        // Criar dietas para dias que não existem (0 = Domingo, 6 = Sábado)
+        const existingDays = new Set((allDiets || []).map(d => d.day_of_week));
+        const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+        for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+          if (!existingDays.has(dayOfWeek)) {
+            console.log(`📝 Creating diet for ${daysOfWeek[dayOfWeek]} (day ${dayOfWeek})...`);
+
+            const { data: newDiet, error: createError } = await supabase
+              .from('diets')
+              .insert({
+                user_id: user.id,
+                name: `Dieta ${daysOfWeek[dayOfWeek]}`,
+                calories: localDiet.calories,
+                day_of_week: dayOfWeek
+              })
+              .select('id, day_of_week, calories')
+              .single();
+
+            if (createError) {
+              console.error(`❌ Error creating diet for day ${dayOfWeek}:`, createError);
+              continue;
+            }
+
+            // Criar macros padrão para a nova dieta
+            if (newDiet) {
+              await supabase.from('diet_macros').insert({
+                diet_id: newDiet.id,
+                protein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
+                carbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
+                fats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9)
+              });
+
+              // Adicionar à lista de dietas
+              if (!allDiets) {
+                allDiets = [];
+              }
+              allDiets.push({
+                ...newDiet,
+                macros: {
+                  protein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
+                  carbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
+                  fats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9)
+                }
+              });
+
+              console.log(`✅ Created diet for day ${dayOfWeek}`);
+            }
+          }
+        }
+
+        // Reordenar dietas por dia da semana
+        allDiets?.sort((a, b) => a.day_of_week - b.day_of_week);
+
+        console.log(`📅 Total diets to update: ${allDiets?.length || 0}`);
 
         for (const diet of allDiets || []) {
-          console.log(`⏳ Processing diet for day ${diet.day_of_week}...`);
+          console.log(`⏳ Processing diet for ${daysOfWeek[diet.day_of_week]} (day ${diet.day_of_week})...`);
 
           const requestBody = {
             dietId: diet.id,
