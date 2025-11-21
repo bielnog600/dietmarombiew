@@ -174,15 +174,27 @@ Responda APENAS com JSON no formato:
       }
 
       // Deletar refeições e alimentos existentes
+      console.log(`🗑️ Checking for existing meals in diet ${dietId}...`);
       const { data: existingMeals } = await supabase
         .from('meals')
         .select('id')
         .eq('diet_id', dietId);
 
+      console.log(`📊 Found ${existingMeals?.length || 0} existing meals to delete`);
+
       if (existingMeals && existingMeals.length > 0) {
         const mealIds = existingMeals.map((m: any) => m.id);
-        await supabase.from('meal_foods').delete().in('meal_id', mealIds);
-        await supabase.from('meals').delete().in('id', mealIds);
+        console.log(`🗑️ Deleting meal_foods for ${mealIds.length} meals...`);
+        const { error: deleteFoodsError } = await supabase.from('meal_foods').delete().in('meal_id', mealIds);
+        if (deleteFoodsError) console.error('❌ Error deleting meal_foods:', deleteFoodsError);
+
+        console.log(`🗑️ Deleting ${mealIds.length} meals...`);
+        const { error: deleteMealsError } = await supabase.from('meals').delete().in('id', mealIds);
+        if (deleteMealsError) console.error('❌ Error deleting meals:', deleteMealsError);
+
+        console.log(`✅ Deleted ${mealIds.length} meals and their foods`);
+      } else {
+        console.log('ℹ️ No existing meals to delete');
       }
 
       // Inserir novas refeições
