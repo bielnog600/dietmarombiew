@@ -491,6 +491,19 @@ export default function DietPlan() {
                     {totalMacros.calories} kcal
                   </p>
                 </div>
+                <div className="pt-2 border-t border-gray-700">
+                  <p className="text-sm font-medium text-gray-400 mb-1">{t('difference')}</p>
+                  <p className={`text-xl font-bold ${
+                    totalMacros.calories > (targetCalories || diet.calories)
+                      ? 'text-red-400'
+                      : totalMacros.calories < (targetCalories || diet.calories)
+                      ? 'text-blue-400'
+                      : 'text-green-400'
+                  }`}>
+                    {totalMacros.calories - (targetCalories || diet.calories) > 0 ? '+' : ''}
+                    {totalMacros.calories - (targetCalories || diet.calories)} kcal
+                  </p>
+                </div>
               </div>
             </div>
           </div>
