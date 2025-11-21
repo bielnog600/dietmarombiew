@@ -635,7 +635,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
   };
 
   const handleManualDietGeneration = async () => {
-    console.log('🚀 handleManualDietGeneration called');
+    console.log('🚀🚀🚀 handleManualDietGeneration STARTED 🚀🚀🚀');
     console.log('localDiet:', localDiet?.id);
     console.log('selectedStrategy:', selectedStrategy);
     console.log('selectedDietModel:', selectedDietModel);
@@ -649,6 +649,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
 
     try {
+      console.log('✅ Validation passed, starting generation...');
       setError('');
       setGeneratingDiet(true);
       setShowManualMealSelection(false);
@@ -893,8 +894,15 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
         // Ajustar cada dieta com a IA, usando mesmos alimentos mas respeitando metas
         for (const diet of allDiets || []) {
+          console.log(`⏳ Adjusting diet for day ${diet.day_of_week}...`);
           await adjustMacrosWithAI(diet, strategy, dietModel);
+          console.log(`✅ Diet adjusted for day ${diet.day_of_week}`);
+          // Pequeno delay entre requisições
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
+
+        console.log('⏳ Aguardando finalização de todas as operações...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         alert(`✅ Dietas ajustadas em ${allDiets?.length || 0} dias da semana!`);
       } else {
