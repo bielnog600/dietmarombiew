@@ -1364,7 +1364,8 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                                       carbs: mealFood.food.carbs,
                                       fats: mealFood.food.fats,
                                       calories: mealFood.food.calories,
-                                      quantity: mealFood.quantity
+                                      quantity: mealFood.quantity,
+                                      mealId: meal.id
                                     });
                                     setSubstitutionModalOpen(true);
                                   }}
@@ -1570,6 +1571,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               setSelectedFoodForSubstitution(null);
             }}
             currentFood={selectedFoodForSubstitution}
+            mealId={selectedFoodForSubstitution.mealId}
             onSubstitute={async () => {
               setSubstitutionModalOpen(false);
               setSelectedFoodForSubstitution(null);

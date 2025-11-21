@@ -147,26 +147,45 @@ export function FoodSubstitutionModal({
   }
 
   async function handleSubstitute() {
-    if (!selectedFoodId) return;
+    if (!selectedFoodId || !mealId) {
+      console.error('Missing selectedFoodId or mealId', { selectedFoodId, mealId });
+      alert(language === 'pt' ? 'Erro: informações faltando' : 'Error: missing information');
+      return;
+    }
 
     setLoading(true);
     try {
       const selectedFood = similarFoods.find(f => f.id === selectedFoodId);
-      if (!selectedFood) return;
+      if (!selectedFood) {
+        console.error('Selected food not found');
+        return;
+      }
 
-      await supabase
+      console.log('Deleting old food:', { mealId, foodId: currentFood.id });
+      const { error: deleteError } = await supabase
         .from('meal_foods')
         .delete()
         .eq('meal_id', mealId)
         .eq('food_id', currentFood.id);
 
-      await supabase
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('Inserting new food:', { mealId, foodId: selectedFood.id, quantity: (selectedFood as any).quantity });
+      const { error: insertError } = await supabase
         .from('meal_foods')
         .insert({
           meal_id: mealId,
           food_id: selectedFood.id,
           quantity: (selectedFood as any).quantity
         });
+
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw insertError;
+      }
 
       onSubstitute();
       onClose();
