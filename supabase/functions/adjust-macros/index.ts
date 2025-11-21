@@ -25,12 +25,21 @@ Deno.serve(async (req: Request) => {
     if (!dietId || !userId) throw new Error('Missing required parameters');
 
     // Buscar TODOS os alimentos disponíveis
-    const { data: allFoods } = await supabase
+    const { data: allFoods, error: foodsError } = await supabase
       .from('foods')
-      .select('id,name,protein,carbs,fats,calories')
-      .eq('user_id', userId);
+      .select('id,name,protein,carbs,fats,calories');
 
-    if (!allFoods || allFoods.length === 0) throw new Error('No foods found');
+    if (foodsError) {
+      console.error('Error fetching foods:', foodsError);
+      throw new Error(`Failed to fetch foods: ${foodsError.message}`);
+    }
+
+    if (!allFoods || allFoods.length === 0) {
+      console.error('No foods found in database');
+      throw new Error('No foods found');
+    }
+
+    console.log(`📦 Found ${allFoods.length} foods in database`);
 
     // Embaralhar alimentos para garantir variedade a cada requisição
     const shuffled = [...allFoods].sort(() => Math.random() - 0.5);
