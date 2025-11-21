@@ -55,14 +55,21 @@ export default function ManualMealSelectionModal({
   };
 
   const handleNext = () => {
+    console.log('🔄 handleNext called');
+    console.log('Current step:', currentStep, '/', mealNames.length - 1);
+    console.log('Current meal:', currentMealName);
+    console.log('Selected foods:', tempSelectedFoods);
+
     onFoodSelection(currentMealName, tempSelectedFoods);
 
     if (currentStep < mealNames.length - 1) {
       const nextStep = currentStep + 1;
+      console.log('➡️ Moving to next step:', nextStep);
       onStepChange(nextStep);
       setTempSelectedFoods(selectedFoods[mealNames[nextStep]] || []);
       setSearchTerm('');
     } else {
+      console.log('✅ Last step reached, calling onFinish');
       onFinish();
     }
   };

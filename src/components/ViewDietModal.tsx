@@ -625,7 +625,17 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
   };
 
   const handleManualDietGeneration = async () => {
-    if (!localDiet || !selectedStrategy || !selectedDietModel) return;
+    console.log('🚀 handleManualDietGeneration called');
+    console.log('localDiet:', localDiet?.id);
+    console.log('selectedStrategy:', selectedStrategy);
+    console.log('selectedDietModel:', selectedDietModel);
+    console.log('manualSelectedFoods:', manualSelectedFoods);
+
+    if (!localDiet || !selectedStrategy || !selectedDietModel) {
+      console.error('❌ Missing required data:', { localDiet: !!localDiet, selectedStrategy, selectedDietModel });
+      alert('Erro: Dados incompletos. Tente novamente.');
+      return;
+    }
 
     try {
       setError('');
@@ -641,11 +651,33 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         }))
       }));
 
+      console.log('📦 manualFoodsData prepared:', manualFoodsData);
+
+      if (manualFoodsData.length === 0) {
+        throw new Error('Nenhum alimento foi selecionado');
+      }
+
       // Chamar edge function com os alimentos selecionados
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/adjust-macros`;
+
+      console.log('📡 Calling edge function:', apiUrl);
+
+      const requestBody = {
+        dietId: localDiet.id,
+        userId: user.id,
+        strategy: selectedStrategy,
+        dietModel: selectedDietModel,
+        targetCalories: localDiet.calories,
+        targetProtein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
+        targetCarbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
+        targetFats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9),
+        manualFoods: manualFoodsData,
+      };
+
+      console.log('📤 Request body:', requestBody);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -653,23 +685,19 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          dietId: localDiet.id,
-          userId: user.id,
-          strategy: selectedStrategy,
-          dietModel: selectedDietModel,
-          targetCalories: localDiet.calories,
-          targetProtein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
-          targetCarbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
-          targetFats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9),
-          manualFoods: manualFoodsData,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('📥 Response status:', response.status);
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to generate diet');
+        console.error('❌ Edge function error:', error);
+        throw new Error(error.error || error.message || 'Failed to generate diet');
       }
+
+      const result = await response.json();
+      console.log('✅ Success:', result);
 
       alert('✅ Dieta gerada com sucesso com seus alimentos!');
 
@@ -683,8 +711,9 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       // Recarregar dados
       await refreshDietData();
     } catch (err) {
-      console.error('Error generating manual diet:', err);
+      console.error('❌ Error generating manual diet:', err);
       setError('Erro ao gerar dieta: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+      alert('Erro ao gerar dieta: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
     } finally {
       setGeneratingDiet(false);
     }
