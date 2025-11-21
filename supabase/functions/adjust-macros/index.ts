@@ -24,25 +24,52 @@ Deno.serve(async (req: Request) => {
 
     if (!dietId || !userId) throw new Error('Missing required parameters');
 
-    // Buscar APENAS 20 alimentos principais para prompt minúsculo
-    const { data: allFoods } = await supabase.from('foods').select('id,name,protein,carbs,fats').limit(20);
+    // Buscar alimentos com valores nutricionais completos
+    const { data: allFoods } = await supabase.from('foods').select('id,name,protein,carbs,fats,calories').limit(30);
     if (!allFoods || allFoods.length === 0) throw new Error('No foods found');
 
-    // Lista MINÚSCULA (sem IDs no prompt para economizar espaço)
-    const foodNames = allFoods.map(f => f.name).join(',');
+    // Criar lista detalhada dos alimentos com valores nutricionais
+    const foodList = allFoods.map(f =>
+      `${f.name}(${f.calories || Math.round((f.protein*4)+(f.carbs*4)+(f.fats*9))}kcal,${f.protein}P,${f.carbs}C,${f.fats}F/100g)`
+    ).join(', ');
+
     const foodsMap = new Map(allFoods.map(f => [f.name.toLowerCase(), f.id]));
 
-    // Random seed
+    // Random seed para variação
     const seed = Date.now() % 10000;
-    const styles = ['equilibrada', 'low carb', 'flexível'];
-    const style = styles[seed % styles.length];
 
-    // Prompt MÍNIMO (evitar Unterminated String)
-    const prompt = `JSON dieta. ${targetCalories}kcal ${targetProtein}P ${targetCarbs}C ${targetFats}F. Alimentos:${foodNames}. Seed:${seed} Style:${style}. ${strategy}`;
+    const systemPrompt = `Você é um nutricionista especializado em cálculo preciso de porções.
 
-    console.log(`Seed:${seed} Style:${style}`);
+REGRAS CRÍTICAS:
+1. As quantidades são em GRAMAS (100g = 1.0)
+2. NUNCA ultrapasse as metas de calorias e macros
+3. Calcule as porções com PRECISÃO para ficar DENTRO ou ABAIXO das metas
+4. Use porções pequenas (0.5, 0.8, 1.2) para controle fino
+5. Varie os alimentos entre refeições
 
-    const systemPrompt = 'Você é um nutricionista. Responda APENAS em JSON no formato: {"meals":[{"name":"Café da Manhã","foods":[{"foodName":"Frango","quantity":1.5}]}]}. Varie os alimentos entre as refeições.';
+FORMATO JSON OBRIGATÓRIO:
+{"meals":[{"name":"Café da Manhã","foods":[{"foodName":"Frango","quantity":1.5}]}]}
+
+Responda APENAS com JSON puro, sem texto adicional.`;
+
+    const prompt = `META DIÁRIA (NÃO ULTRAPASSAR):
+- Calorias: ${targetCalories} kcal
+- Proteínas: ${targetProtein}g
+- Carboidratos: ${targetCarbs}g
+- Gorduras: ${targetFats}g
+
+ALIMENTOS DISPONÍVEIS (valores por 100g):
+${foodList}
+
+INSTRUÇÕES:
+1. Crie 5-6 refeições balanceadas
+2. Calcule as quantidades em gramas para FICAR DENTRO das metas
+3. Distribua os macros proporcionalmente entre as refeições
+4. Use porções realistas (ex: 1.5 = 150g, 0.8 = 80g)
+5. Varie os alimentos entre as refeições (seed: ${seed})
+6. ${strategy || 'Distribua equilibradamente'}
+
+IMPORTANTE: Cada quantity é em múltiplos de 100g. Se um alimento tem 30P/100g e você quer 45g de proteína, use quantity: 1.5`;
     const fullPrompt = `${systemPrompt}\n\n${prompt}`;
 
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
@@ -55,8 +82,8 @@ Deno.serve(async (req: Request) => {
           parts: [{ text: fullPrompt }]
         }],
         generationConfig: {
-          temperature: 0.9,
-          maxOutputTokens: 2048
+          temperature: 0.5,
+          maxOutputTokens: 3072
         }
       }),
     });
@@ -84,7 +111,26 @@ Deno.serve(async (req: Request) => {
     const result = JSON.parse(jsonStr);
     if (!result.meals || !Array.isArray(result.meals)) throw new Error('Invalid structure');
 
-    console.log(`✅ ${result.meals.length} meals`);
+    // Calcular totais para validação
+    let totalCals = 0, totalProt = 0, totalCarbs = 0, totalFats = 0;
+    for (const meal of result.meals) {
+      if (meal.foods) {
+        for (const food of meal.foods) {
+          const foodData = allFoods.find(f =>
+            f.name.toLowerCase() === food.foodName?.toLowerCase() ||
+            f.name.toLowerCase().includes(food.foodName?.toLowerCase())
+          );
+          if (foodData && food.quantity) {
+            totalCals += (foodData.calories || ((foodData.protein*4)+(foodData.carbs*4)+(foodData.fats*9))) * food.quantity;
+            totalProt += foodData.protein * food.quantity;
+            totalCarbs += foodData.carbs * food.quantity;
+            totalFats += foodData.fats * food.quantity;
+          }
+        }
+      }
+    }
+
+    console.log(`✅ ${result.meals.length} meals | Total: ${Math.round(totalCals)}kcal ${Math.round(totalProt)}P ${Math.round(totalCarbs)}C ${Math.round(totalFats)}F`);
 
     // Converter foodName para foodId
     for (const meal of result.meals) {
