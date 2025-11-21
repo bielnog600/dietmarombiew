@@ -212,28 +212,43 @@ export default function AddFoodModal({ isOpen, onClose, mealId, onFoodAdded, ski
 
     try {
       if (!skipInsert) {
-        const { error } = await supabase
+        // Verificar se o alimento já existe nesta refeição
+        const { data: existingFood } = await supabase
           .from('meal_foods')
-          .insert([
-            {
-              meal_id: mealId,
-              food_id: selectedFood.id,
-              quantity: quantity
-            }
-          ]);
+          .select('id, quantity')
+          .eq('meal_id', mealId)
+          .eq('food_id', selectedFood.id)
+          .maybeSingle();
 
-        if (error) throw error;
+        if (existingFood) {
+          // Se já existe, aumentar a quantidade
+          const { error: updateError } = await supabase
+            .from('meal_foods')
+            .update({ quantity: existingFood.quantity + quantity })
+            .eq('id', existingFood.id);
+
+          if (updateError) throw updateError;
+        } else {
+          // Se não existe, inserir novo
+          const { error: insertError } = await supabase
+            .from('meal_foods')
+            .insert([
+              {
+                meal_id: mealId,
+                food_id: selectedFood.id,
+                quantity: quantity
+              }
+            ]);
+
+          if (insertError) throw insertError;
+        }
       }
 
       onFoodAdded(selectedFood.id, quantity);
       onClose();
     } catch (err: any) {
       console.error('Error adding food:', err);
-      if (err.message?.includes('Food item already exists in this meal')) {
-        setError(t('foodAlreadyExists'));
-      } else {
-        setError(t('errorAddingFood'));
-      }
+      setError(t('errorAddingFood'));
     } finally {
       setLoading(false);
     }

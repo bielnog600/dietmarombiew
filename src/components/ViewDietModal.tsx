@@ -909,15 +909,34 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         for (const diet of allWeekDiets) {
           const matchingMeal = diet.meals?.find(m => m.name === currentMeal.name);
           if (matchingMeal) {
-            const { error: insertError } = await supabase
+            // Verificar se o alimento já existe nesta refeição
+            const { data: existingFood } = await supabase
               .from('meal_foods')
-              .insert({
-                meal_id: matchingMeal.id,
-                food_id: foodId,
-                quantity: quantity
-              });
+              .select('id, quantity')
+              .eq('meal_id', matchingMeal.id)
+              .eq('food_id', foodId)
+              .maybeSingle();
 
-            if (insertError) throw insertError;
+            if (existingFood) {
+              // Se já existe, aumentar a quantidade
+              const { error: updateError } = await supabase
+                .from('meal_foods')
+                .update({ quantity: existingFood.quantity + quantity })
+                .eq('id', existingFood.id);
+
+              if (updateError) throw updateError;
+            } else {
+              // Se não existe, inserir novo
+              const { error: insertError } = await supabase
+                .from('meal_foods')
+                .insert({
+                  meal_id: matchingMeal.id,
+                  food_id: foodId,
+                  quantity: quantity
+                });
+
+              if (insertError) throw insertError;
+            }
           }
         }
       }
@@ -1125,14 +1144,16 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
               </div>
               <div className="text-right">
                 <h4 className="text-sm font-medium text-gray-400 mb-1">Calorias Atuais</h4>
-                <p className={`text-2xl font-bold ${isCaloriesWithinRange ? 'text-green-400' : 'text-red-400'}`}>
-                  {dietTotals.calories} kcal
+                <div className="flex flex-col items-end gap-1">
+                  <p className={`text-2xl font-bold ${isCaloriesWithinRange ? 'text-green-400' : 'text-red-400'}`}>
+                    {dietTotals.calories} kcal
+                  </p>
                   {!editingCalories && (
-                    <span className="text-sm ml-2">
-                      ({caloriesDiff > 0 ? '+' : ''}{caloriesDiff} kcal)
+                    <span className={`text-base font-semibold ${caloriesDiff > 0 ? 'text-red-400' : caloriesDiff < 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                      {caloriesDiff > 0 ? '+' : ''}{caloriesDiff} kcal {caloriesDiff > 0 ? 'acima' : caloriesDiff < 0 ? 'abaixo' : 'na meta'}
                     </span>
                   )}
-                </p>
+                </div>
               </div>
             </div>
           </div>
