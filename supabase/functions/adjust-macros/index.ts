@@ -101,19 +101,69 @@ Responda APENAS com JSON no formato:
       // Limpar a resposta da IA
       rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-      // Tentar corrigir JSON malformado comum
-      rawText = rawText
-        .replace(/,\s*}/g, '}')  // Remove vírgulas antes de }
-        .replace(/,\s*]/g, ']')   // Remove vírgulas antes de ]
-        .replace(/}\s*{/g, '},{') // Adiciona vírgula entre objetos
-        .replace(/]\s*\[/g, '],['); // Adiciona vírgula entre arrays
+      // Função para tentar múltiplas estratégias de correção
+      const tryParseJSON = (text: string): any => {
+        const strategies = [
+          // Estratégia 1: Parse direto
+          (t: string) => JSON.parse(t),
+
+          // Estratégia 2: Corrigir vírgulas extras
+          (t: string) => JSON.parse(
+            t.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']')
+          ),
+
+          // Estratégia 3: Corrigir falta de vírgulas entre objetos/arrays
+          (t: string) => JSON.parse(
+            t.replace(/}\s*{/g, '},{').replace(/]\s*\[/g, '],[')
+          ),
+
+          // Estratégia 4: Corrigir todas as vírgulas
+          (t: string) => JSON.parse(
+            t.replace(/,\s*}/g, '}')
+             .replace(/,\s*]/g, ']')
+             .replace(/}\s*{/g, '},{')
+             .replace(/]\s*\[/g, '],[')
+          ),
+
+          // Estratégia 5: Remover quebras de linha extras e espaços
+          (t: string) => JSON.parse(
+            t.replace(/\n\s*\n/g, '\n')
+             .replace(/,\s*}/g, '}')
+             .replace(/,\s*]/g, ']')
+          ),
+
+          // Estratégia 6: Extrair apenas o primeiro objeto JSON válido
+          (t: string) => {
+            const match = t.match(/\{[\s\S]*\}/);
+            if (match) {
+              return JSON.parse(
+                match[0]
+                  .replace(/,\s*}/g, '}')
+                  .replace(/,\s*]/g, ']')
+              );
+            }
+            throw new Error('No JSON object found');
+          }
+        ];
+
+        let lastError;
+        for (const strategy of strategies) {
+          try {
+            return strategy(text);
+          } catch (e: any) {
+            lastError = e;
+            continue;
+          }
+        }
+        throw lastError;
+      };
 
       let dietPlan;
       try {
-        dietPlan = JSON.parse(rawText);
+        dietPlan = tryParseJSON(rawText);
         console.log('✅ Diet plan parsed:', dietPlan);
       } catch (parseError: any) {
-        console.error('❌ Failed to parse AI response:', parseError.message);
+        console.error('❌ Failed to parse AI response after all strategies:', parseError.message);
         console.error('📄 Raw text that failed:', rawText);
         throw new Error(`Invalid AI response: ${parseError.message}`);
       }
