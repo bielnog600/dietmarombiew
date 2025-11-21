@@ -24,41 +24,28 @@ Deno.serve(async (req: Request) => {
 
     if (!dietId || !userId) throw new Error('Missing required parameters');
 
-    // Buscar alimentos
-    const { data: allFoods } = await supabase.from('foods').select('*').order('name');
+    // Buscar APENAS 20 alimentos principais para prompt minúsculo
+    const { data: allFoods } = await supabase.from('foods').select('id,name,protein,carbs,fats').limit(20);
     if (!allFoods || allFoods.length === 0) throw new Error('No foods found');
 
-    // Criar lista de alimentos
-    const foodsList = allFoods.map(f => `${f.name} [${f.id}]: ${f.protein}gP/${f.carbs}gC/${f.fats}gF por ${f.portion_size}g`).join('\n');
+    // Lista MINÚSCULA (sem IDs no prompt para economizar espaço)
+    const foodNames = allFoods.map(f => f.name).join(',');
+    const foodsMap = new Map(allFoods.map(f => [f.name.toLowerCase(), f.id]));
 
-    // Random seed para variedade
-    const randomSeed = Math.floor(Math.random() * 1000000) + Date.now();
-    const dietStyles = ['equilibrada', 'low carb', 'flexível', 'mediterrânea', 'alta proteína'];
-    const selectedStyle = dietStyles[Math.floor(Math.random() * dietStyles.length)];
+    // Random seed
+    const seed = Date.now() % 10000;
+    const styles = ['equilibrada', 'low carb', 'flexível'];
+    const style = styles[seed % styles.length];
 
-    // Prompt ENXUTO
-    const prompt = `Crie plano alimentar JSON VARIADO (seed ${randomSeed}, estilo ${selectedStyle}).
+    // Prompt MÍNIMO (evitar Unterminated String)
+    const prompt = `JSON dieta. ${targetCalories}kcal ${targetProtein}P ${targetCarbs}C ${targetFats}F. Alimentos:${foodNames}. Seed:${seed} Style:${style}. ${strategy}`;
 
-META: ${targetCalories}kcal | ${targetProtein}gP | ${targetCarbs}gC | ${targetFats}gF (${strategy})
-
-ALIMENTOS DISPONÍVEIS:
-${foodsList}
-
-ESTRUTURA:
-{"meals":[{"name":"Café","foods":[{"foodId":"uuid","quantity":1.5}]}],"newFoods":[]}
-
-REGRAS:
-- quantity = gramas/portion_size
-- Varie: proteínas/carbos/vegetais diferentes
-- Quantities realistas: frango 1-2.5, ovos 2-4, banana 0.6-2
-- Soma final: ±10g macros, ±50kcal`;
-
-    console.log(`🎨 Style: ${selectedStyle}, Seed: ${randomSeed}`);
+    console.log(`Seed:${seed} Style:${style}`);
 
     const messages = [
       {
         role: 'system',
-        content: 'Você é nutricionista. Responda APENAS JSON válido. Varie alimentos a cada geração. Use seed fornecido para unicidade.'
+        content: 'Nutricionista. Responda JSON: {"meals":[{"name":"Café","foods":[{"foodName":"Frango","quantity":1.5}]}]}. Varie alimentos.'
       },
       { role: 'user', content: prompt }
     ];
@@ -73,56 +60,48 @@ REGRAS:
         model: 'gpt-4o',
         messages,
         temperature: 0.9,
-        max_tokens: 2000,
-        frequency_penalty: 0.8,
-        presence_penalty: 0.8,
+        max_tokens: 1500,
+        frequency_penalty: 0.7,
+        presence_penalty: 0.7,
         response_format: { type: "json_object" },
       }),
     });
 
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text();
-      throw new Error(`OpenAI API error: ${errorText}`);
+      throw new Error(`OpenAI error: ${errorText}`);
     }
 
     const openaiData = await openaiResponse.json();
     let content = openaiData.choices[0].message.content.trim();
-    
-    // Limpar e parsear JSON
+
+    // Parse robusto
     content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON found');
 
-    const result = JSON.parse(jsonMatch[0]);
+    let jsonStr = jsonMatch[0]
+      .replace(/\n/g, ' ')
+      .replace(/\r/g, ' ')
+      .replace(/\t/g, ' ')
+      .replace(/,(\s*[}\]])/g, '$1')
+      .trim();
+
+    const result = JSON.parse(jsonStr);
     if (!result.meals || !Array.isArray(result.meals)) throw new Error('Invalid structure');
 
-    console.log(`✅ ${result.meals.length} meals created`);
+    console.log(`✅ ${result.meals.length} meals`);
 
-    // Processar novos alimentos se houver
-    if (result.newFoods && Array.isArray(result.newFoods)) {
-      for (const newFood of result.newFoods) {
-        const { data: existingFood } = await supabase.from('foods').select('id').ilike('name', newFood.name).maybeSingle();
-        
-        if (!existingFood) {
-          const { data: createdFood } = await supabase.from('foods').insert({
-            name: newFood.name,
-            protein: newFood.protein || 0,
-            carbs: newFood.carbs || 0,
-            fats: newFood.fats || 0,
-            calories: newFood.calories || Math.round((newFood.protein * 4) + (newFood.carbs * 4) + (newFood.fats * 9)),
-            portion_size: 100,
-            user_id: userId
-          }).select().single();
-
-          if (createdFood) {
-            console.log(`✅ New food: ${createdFood.name}`);
-            // Substituir referências
-            for (const meal of result.meals) {
-              for (const food of meal.foods || []) {
-                if (food.foodId === `NEW_${newFood.name}`) {
-                  food.foodId = createdFood.id;
-                }
-              }
+    // Converter foodName para foodId
+    for (const meal of result.meals) {
+      if (meal.foods) {
+        for (const food of meal.foods) {
+          if (food.foodName && !food.foodId) {
+            const foodId = foodsMap.get(food.foodName.toLowerCase()) ||
+                          allFoods.find(f => f.name.toLowerCase().includes(food.foodName.toLowerCase()))?.id;
+            if (foodId) {
+              food.foodId = foodId;
+              delete food.foodName;
             }
           }
         }
@@ -140,26 +119,29 @@ REGRAS:
       }).select().single();
 
       if (createdMeal && meal.foods && meal.foods.length > 0) {
-        const mealFoods = meal.foods.map((food: any) => ({
-          meal_id: createdMeal.id,
-          food_id: food.foodId,
-          quantity: food.quantity
-        }));
+        const validFoods = meal.foods.filter((f: any) => f.foodId);
+        if (validFoods.length > 0) {
+          const mealFoods = validFoods.map((food: any) => ({
+            meal_id: createdMeal.id,
+            food_id: food.foodId,
+            quantity: food.quantity || 1
+          }));
 
-        await supabase.from('meal_foods').insert(mealFoods);
+          await supabase.from('meal_foods').insert(mealFoods);
+        }
       }
     }
 
-    console.log('🎉 Diet created successfully!');
+    console.log('🎉 Success!');
 
-    return new Response(JSON.stringify({ success: true, mealsCreated: result.meals.length }), {
+    return new Response(JSON.stringify({ success: true, meals: result.meals.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
     console.error('❌ Error:', err);
     return new Response(JSON.stringify({
-      error: err.message || 'Internal server error',
+      error: err.message || 'Internal error',
       details: err.toString()
     }), {
       status: 500,
