@@ -748,6 +748,8 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
             manualFoods: manualFoodsData,
           };
 
+          console.log(`📤 Sending request to Edge Function for day ${diet.day_of_week}:`, requestBody);
+
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
@@ -757,13 +759,21 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
             body: JSON.stringify(requestBody),
           });
 
+          console.log(`📥 Response status for day ${diet.day_of_week}: ${response.status}`);
+
           if (!response.ok) {
-            const error = await response.json();
-            console.error(`❌ Error updating diet for day ${diet.day_of_week}:`, error);
-            throw new Error(error.error || error.message || 'Failed to generate diet');
+            const errorText = await response.text();
+            console.error(`❌ Error response for day ${diet.day_of_week}:`, errorText);
+            try {
+              const error = JSON.parse(errorText);
+              throw new Error(error.error || error.message || 'Failed to generate diet');
+            } catch (e) {
+              throw new Error(`Failed to generate diet: ${errorText}`);
+            }
           }
 
-          console.log(`✅ Diet updated for day ${diet.day_of_week}`);
+          const result = await response.json();
+          console.log(`✅ Diet updated for day ${diet.day_of_week}:`, result);
         }
 
         alert(`✅ Dietas geradas com sucesso em ${allDiets?.length || 0} dias da semana!`);
