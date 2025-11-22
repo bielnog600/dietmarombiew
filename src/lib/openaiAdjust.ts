@@ -44,6 +44,12 @@ export async function adjustMacrosWithAI(
   if (!response.ok) {
     const error = await response.json();
     console.error('Edge Function Error:', error);
+
+    // Verificar se é erro de quota da API
+    if (error.error && (error.error.includes('429') || error.error.includes('quota') || error.error.includes('RESOURCE_EXHAUSTED'))) {
+      throw new Error('⚠️ Limite de requisições da API atingido. Aguarde alguns minutos e tente novamente, ou gere apenas 1 dia por vez desmarcando "Aplicar em todos os dias".');
+    }
+
     throw new Error(error.error || error.details || 'Failed to adjust macros');
   }
 

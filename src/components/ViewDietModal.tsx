@@ -709,18 +709,42 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         if (fetchError) throw fetchError;
 
         // Ajustar cada dieta com a IA, usando mesmos alimentos mas respeitando metas
+        let successCount = 0;
+        let errorCount = 0;
+        let quotaError = false;
+
         for (const diet of allDiets || []) {
           console.log(`⏳ Adjusting diet for day ${diet.day_of_week}...`);
-          await adjustMacrosWithAI(diet, strategy, dietModel, baseFoodsSelection);
-          console.log(`✅ Diet adjusted for day ${diet.day_of_week}`);
-          // Pequeno delay entre requisições
-          await new Promise(resolve => setTimeout(resolve, 500));
+          try {
+            await adjustMacrosWithAI(diet, strategy, dietModel, baseFoodsSelection);
+            console.log(`✅ Diet adjusted for day ${diet.day_of_week}`);
+            successCount++;
+            // Pequeno delay entre requisições
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } catch (err) {
+            errorCount++;
+            console.error(`❌ Error adjusting diet for day ${diet.day_of_week}:`, err);
+
+            // Se for erro de quota, parar e informar
+            if (err instanceof Error && (err.message.includes('quota') || err.message.includes('429'))) {
+              quotaError = true;
+              break;
+            }
+          }
         }
 
         console.log('⏳ Aguardando finalização de todas as operações...');
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        alert(`✅ Dietas ajustadas em ${allDiets?.length || 0} dias da semana!`);
+        if (quotaError) {
+          alert(`⚠️ Dietas geradas com sucesso: ${successCount} de ${allDiets?.length || 0} dias.\n\n` +
+                `Limite de requisições da API atingido.\n\n` +
+                `Sugestão: Aguarde alguns minutos e gere os dias restantes, ou desmarque "Aplicar em todos os dias" e gere 1 dia por vez.`);
+        } else if (errorCount > 0) {
+          alert(`⚠️ Dietas ajustadas: ${successCount} de ${allDiets?.length || 0} dias.\n${errorCount} erros encontrados.`);
+        } else {
+          alert(`✅ Dietas ajustadas em ${allDiets?.length || 0} dias da semana!`);
+        }
       } else {
         // Ajustar apenas o dia atual
         await adjustMacrosWithAI(localDiet, strategy, dietModel, baseFoodsSelection);
