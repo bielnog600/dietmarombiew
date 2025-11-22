@@ -5,7 +5,6 @@ import type { Diet, Food, MacroDistribution } from '../types';
 import AddFoodModal from './AddFoodModal';
 import PasteDietModal from './PasteDietModal';
 import { FoodSubstitutionModal } from './FoodSubstitutionModal';
-import ManualMealSelectionModal from './ManualMealSelectionModal';
 import { useTranslation } from '../translations';
 import { generateDiet } from '../lib/diet';
 import { adjustMacrosWithStrategy } from '../lib/macroAdjust';
@@ -49,11 +48,8 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
   const [selectedStrategy, setSelectedStrategy] = useState<'cutting' | 'bulking' | null>(null);
   const [showDietModelModal, setShowDietModelModal] = useState(false);
   const [selectedDietModel, setSelectedDietModel] = useState<string | null>(null);
-  const [showGenerationModeModal, setShowGenerationModeModal] = useState(false);
-  const [showManualMealSelection, setShowManualMealSelection] = useState(false);
-  const [manualMealStep, setManualMealStep] = useState(0);
-  const [manualMealNames, setManualMealNames] = useState<string[]>([]);
-  const [manualSelectedFoods, setManualSelectedFoods] = useState<Record<string, Array<{foodId: string, quantity: number}>>>({});
+  const [showBaseFoodSelection, setShowBaseFoodSelection] = useState(false);
+  const [baseFoods, setBaseFoods] = useState<Record<string, string[]>>({});
   const [allFoods, setAllFoods] = useState<Food[]>([]);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState(diet?.day_of_week ?? new Date().getDay());
   const [allWeekDiets, setAllWeekDiets] = useState<Diet[]>([]);
@@ -666,234 +662,6 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
-  const handleManualDietGeneration = async () => {
-    console.log('🚀🚀🚀 handleManualDietGeneration STARTED 🚀🚀🚀');
-    console.log('localDiet:', localDiet?.id);
-    console.log('selectedStrategy:', selectedStrategy);
-    console.log('selectedDietModel:', selectedDietModel);
-    console.log('replicateToAllDays:', replicateToAllDays);
-    console.log('manualSelectedFoods:', manualSelectedFoods);
-
-    if (!localDiet || !selectedStrategy || !selectedDietModel) {
-      console.error('❌ Missing required data:', { localDiet: !!localDiet, selectedStrategy, selectedDietModel });
-      alert('Erro: Dados incompletos. Tente novamente.');
-      return;
-    }
-
-    try {
-      console.log('✅ Validation passed, starting generation...');
-      setError('');
-      setGeneratingDiet(true);
-      setShowManualMealSelection(false);
-
-      // Preparar dados dos alimentos selecionados manualmente
-      const manualFoodsData = Object.entries(manualSelectedFoods).map(([mealName, foods]) => ({
-        mealName,
-        foods: foods.map(f => ({
-          foodId: f.foodId,
-          initialQuantity: f.quantity
-        }))
-      }));
-
-      console.log('📦 manualFoodsData prepared:', manualFoodsData);
-
-      if (manualFoodsData.length === 0) {
-        throw new Error('Nenhum alimento foi selecionado');
-      }
-
-      // Chamar edge function com os alimentos selecionados
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/adjust-macros`;
-
-      if (replicateToAllDays) {
-        // Aplicar em todos os dias da semana
-        console.log('🔄 Aplicando em TODOS os dias da semana');
-
-        const { data: fetchedDiets, error: fetchError } = await supabase
-          .from('diets')
-          .select('id, day_of_week, calories, carb_day_type, macros:diet_macros(*)')
-          .eq('user_id', user.id)
-          .order('day_of_week', { ascending: true });
-
-        if (fetchError) throw fetchError;
-
-        console.log(`📅 Found ${fetchedDiets?.length || 0} existing diets`);
-
-        // Log das calorias de cada dia
-        fetchedDiets?.forEach(d => {
-          console.log(`  📊 Day ${d.day_of_week} - ${d.calories} kcal (type: ${d.carb_day_type || 'not set'})`);
-        });
-
-        // Criar array mutável para adicionar novas dietas
-        let allDiets = [...(fetchedDiets || [])];
-
-        // Criar dietas para dias que não existem (0 = Domingo, 6 = Sábado)
-        const existingDays = new Set(allDiets.map(d => d.day_of_week));
-        const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-
-        for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
-          if (!existingDays.has(dayOfWeek)) {
-            console.log(`📝 Creating diet for ${daysOfWeek[dayOfWeek]} (day ${dayOfWeek})...`);
-
-            const { data: newDiet, error: createError } = await supabase
-              .from('diets')
-              .insert({
-                user_id: user.id,
-                calories: localDiet.calories,
-                day_of_week: dayOfWeek
-              })
-              .select('id, day_of_week, calories')
-              .single();
-
-            if (createError) {
-              console.error(`❌ Error creating diet for day ${dayOfWeek}:`, createError);
-              continue;
-            }
-
-            // Criar macros padrão para a nova dieta
-            if (newDiet) {
-              await supabase.from('diet_macros').insert({
-                diet_id: newDiet.id,
-                protein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
-                carbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
-                fats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9)
-              });
-
-              // Adicionar à lista de dietas
-              allDiets.push({
-                ...newDiet,
-                macros: {
-                  protein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
-                  carbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
-                  fats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9)
-                }
-              });
-
-              console.log(`✅ Created diet for day ${dayOfWeek}`);
-            }
-          }
-        }
-
-        // Reordenar dietas por dia da semana
-        allDiets.sort((a, b) => a.day_of_week - b.day_of_week);
-
-        console.log(`📅 Total diets to update: ${allDiets?.length || 0}`);
-
-        for (const diet of allDiets || []) {
-          console.log(`⏳ Processing diet for ${daysOfWeek[diet.day_of_week]} (day ${diet.day_of_week})...`);
-
-          const requestBody = {
-            dietId: diet.id,
-            userId: user.id,
-            strategy: selectedStrategy,
-            dietModel: selectedDietModel,
-            targetCalories: diet.calories,
-            targetProtein: diet.macros?.protein || Math.round((diet.calories * 0.4) / 4),
-            targetCarbs: diet.macros?.carbs || Math.round((diet.calories * 0.3) / 4),
-            targetFats: diet.macros?.fats || Math.round((diet.calories * 0.3) / 9),
-            manualFoods: manualFoodsData,
-          };
-
-          console.log(`📤 Sending request to Edge Function for day ${diet.day_of_week}:`, requestBody);
-
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-          });
-
-          console.log(`📥 Response status for day ${diet.day_of_week}: ${response.status}`);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`❌ Error response for day ${diet.day_of_week}:`, errorText);
-            try {
-              const error = JSON.parse(errorText);
-              throw new Error(error.error || error.message || 'Failed to generate diet');
-            } catch (e) {
-              throw new Error(`Failed to generate diet: ${errorText}`);
-            }
-          }
-
-          const result = await response.json();
-          console.log(`✅ Diet updated for day ${diet.day_of_week}:`, result);
-
-          // Pequeno delay entre requisições para evitar sobrecarga
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        // Aguardar um pouco antes de recarregar para garantir que todas as mudanças foram salvas
-        console.log('⏳ Aguardando finalização de todas as operações...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        alert(`✅ Dietas geradas com sucesso em ${allDiets?.length || 0} dias da semana!`);
-      } else {
-        // Aplicar apenas no dia atual
-        console.log('📡 Aplicando apenas no dia atual');
-
-        const requestBody = {
-          dietId: localDiet.id,
-          userId: user.id,
-          strategy: selectedStrategy,
-          dietModel: selectedDietModel,
-          targetCalories: localDiet.calories,
-          targetProtein: localDiet.macros?.protein || Math.round((localDiet.calories * 0.4) / 4),
-          targetCarbs: localDiet.macros?.carbs || Math.round((localDiet.calories * 0.3) / 4),
-          targetFats: localDiet.macros?.fats || Math.round((localDiet.calories * 0.3) / 9),
-          manualFoods: manualFoodsData,
-        };
-
-        console.log('📤 Request body:', requestBody);
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        console.log('📥 Response status:', response.status);
-
-        if (!response.ok) {
-          const error = await response.json();
-          console.error('❌ Edge function error:', error);
-          throw new Error(error.error || error.message || 'Failed to generate diet');
-        }
-
-        const result = await response.json();
-        console.log('✅ Success:', result);
-
-        // Aguardar um pouco antes de recarregar (também no modo dia único)
-        console.log('⏳ Aguardando finalização da operação...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        alert('✅ Dieta gerada com sucesso com seus alimentos!');
-      }
-
-      // Limpar estados
-      setShowMacroStrategyModal(false);
-      setSelectedStrategy(null);
-      setSelectedDietModel(null);
-      setManualSelectedFoods({});
-      setManualMealStep(0);
-
-      // Recarregar dados
-      await refreshDietData();
-    } catch (err) {
-      console.error('❌ Error generating manual diet:', err);
-      setError('Erro ao gerar dieta: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
-      alert('Erro ao gerar dieta: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
-    } finally {
-      setGeneratingDiet(false);
-    }
-  };
 
   const handlePortionChange = (mealFoodId: string, currentGrams: number, increment: boolean) => {
     const step = 10; // Adjust portion by 10g increments
@@ -1925,7 +1693,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   <button
                     onClick={() => {
                       setSelectedDietModel('low-carb');
-                      setShowGenerationModeModal(true);
+                      handleAutoAdjustWithStrategy(selectedStrategy!, 'low-carb');
                     }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1942,7 +1710,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   <button
                     onClick={() => {
                       setSelectedDietModel('balanced-cutting');
-                      setShowGenerationModeModal(true);
+                      handleAutoAdjustWithStrategy(selectedStrategy!, 'balanced-cutting');
                     }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1960,7 +1728,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   <button
                     onClick={() => {
                       setSelectedDietModel('high-carb');
-                      setShowGenerationModeModal(true);
+                      handleAutoAdjustWithStrategy(selectedStrategy!, 'high-carb');
                     }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1978,7 +1746,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   <button
                     onClick={() => {
                       setSelectedDietModel('balanced-bulking');
-                      setShowGenerationModeModal(true);
+                      handleAutoAdjustWithStrategy(selectedStrategy!, 'balanced-bulking');
                     }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2008,68 +1776,6 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           </div>
         )}
 
-        {showGenerationModeModal && selectedStrategy && selectedDietModel && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4">
-            <div className="bg-[rgb(23,23,23)] border border-gray-700 rounded-lg p-6 max-w-lg w-full">
-              <h3 className="text-xl font-bold text-white mb-2">
-                Modo de Geração da Dieta
-              </h3>
-              <p className="text-gray-400 text-sm mb-6">
-                Escolha como deseja criar sua dieta:
-              </p>
-
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setShowGenerationModeModal(false);
-                    handleAutoAdjustWithStrategy(selectedStrategy, selectedDietModel);
-                  }}
-                  disabled={generatingDiet}
-                  className="w-full p-4 rounded-lg bg-gradient-to-r from-[#f8c045] to-orange-500 hover:from-orange-500 hover:to-[#f8c045] text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-2xl">🤖</span>
-                    <div className="font-bold text-lg">IA Automática</div>
-                  </div>
-                  <div className="text-sm opacity-90 ml-11">
-                    A IA escolhe todos os alimentos e quantidades automaticamente seguindo o modelo selecionado
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowGenerationModeModal(false);
-                    setShowDietModelModal(false);
-                    setManualMealStep(0);
-                    setManualMealNames(['Café da Manhã', 'Lanche da Manhã', 'Almoço', 'Lanche da Tarde', 'Jantar']);
-                    setManualSelectedFoods({});
-                    setShowManualMealSelection(true);
-                  }}
-                  disabled={generatingDiet}
-                  className="w-full p-4 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-2xl">👨‍🍳</span>
-                    <div className="font-bold text-lg">Seleção Manual</div>
-                  </div>
-                  <div className="text-sm opacity-90 ml-11">
-                    Você escolhe os alimentos para cada refeição e a IA ajusta as quantidades para bater nas metas
-                  </div>
-                </button>
-              </div>
-
-              <button
-                onClick={() => {
-                  setShowGenerationModeModal(false);
-                }}
-                disabled={generatingDiet}
-                className="w-full mt-6 px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition disabled:opacity-50"
-              >
-                Voltar
-              </button>
-            </div>
-          </div>
-        )}
 
         {showMacroStrategyModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -2159,26 +1865,6 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           </div>
         )}
 
-        <ManualMealSelectionModal
-          isOpen={showManualMealSelection}
-          onClose={() => {
-            setShowManualMealSelection(false);
-            setManualMealStep(0);
-            setManualSelectedFoods({});
-          }}
-          mealNames={manualMealNames}
-          currentStep={manualMealStep}
-          onStepChange={setManualMealStep}
-          selectedFoods={manualSelectedFoods}
-          onFoodSelection={(mealName, foods) => {
-            setManualSelectedFoods(prev => ({
-              ...prev,
-              [mealName]: foods
-            }));
-          }}
-          allFoods={allFoods}
-          onFinish={handleManualDietGeneration}
-        />
       </div>
     </div>
   );
