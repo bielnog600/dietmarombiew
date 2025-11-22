@@ -713,13 +713,18 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
         const { data: fetchedDiets, error: fetchError } = await supabase
           .from('diets')
-          .select('id, day_of_week, calories, macros:diet_macros(*)')
+          .select('id, day_of_week, calories, carb_day_type, macros:diet_macros(*)')
           .eq('user_id', user.id)
           .order('day_of_week', { ascending: true });
 
         if (fetchError) throw fetchError;
 
         console.log(`📅 Found ${fetchedDiets?.length || 0} existing diets`);
+
+        // Log das calorias de cada dia
+        fetchedDiets?.forEach(d => {
+          console.log(`  📊 Day ${d.day_of_week} - ${d.calories} kcal (type: ${d.carb_day_type || 'not set'})`);
+        });
 
         // Criar array mutável para adicionar novas dietas
         let allDiets = [...(fetchedDiets || [])];
