@@ -448,6 +448,10 @@ ${selectedModel ? '- Priorize alimentos do MODELO ALIMENTAR quando disponíveis'
 
     console.log(`🎲 Seed: ${combinedSeed} | Style: ${randomStyle} | Strategy: ${strategy || 'maintenance'} | Model: ${dietModel || 'none'} | Foods: ${selectedFoods.length}`);
 
+    // Ajustar temperatura baseado em se tem base foods ou não
+    const hasBaseFoods = baseFoods && Object.keys(baseFoods).length > 0;
+    const temperature = hasBaseFoods ? 0.7 : 1.2; // Mais conservador com base foods
+
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: {
@@ -458,13 +462,15 @@ ${selectedModel ? '- Priorize alimentos do MODELO ALIMENTAR quando disponíveis'
           parts: [{ text: fullPrompt }]
         }],
         generationConfig: {
-          temperature: 1.2,
+          temperature: temperature,
           topP: 0.95,
           topK: 64,
           maxOutputTokens: 4096
         }
       }),
     });
+
+    console.log(`🌡️ Using temperature: ${temperature} (hasBaseFoods: ${hasBaseFoods})`);
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
@@ -474,19 +480,53 @@ ${selectedModel ? '- Priorize alimentos do MODELO ALIMENTAR quando disponíveis'
     const geminiData = await geminiResponse.json();
     let content = geminiData.candidates[0].content.parts[0].text.trim();
 
+    console.log('📝 Raw AI response (first 500 chars):', content.substring(0, 500));
+
     // Parse robusto
     content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
     const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON found');
+    if (!jsonMatch) {
+      console.error('❌ No JSON found in response');
+      throw new Error('No JSON found in AI response');
+    }
 
     let jsonStr = jsonMatch[0]
       .replace(/\n/g, ' ')
       .replace(/\r/g, ' ')
       .replace(/\t/g, ' ')
       .replace(/,(\s*[}\]])/g, '$1')
+      .replace(/,\s*,/g, ',')
+      .replace(/\s+/g, ' ')
       .trim();
 
-    const result = JSON.parse(jsonStr);
+    console.log('🔧 Cleaned JSON (first 500 chars):', jsonStr.substring(0, 500));
+
+    let result;
+    try {
+      result = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('❌ JSON Parse Error:', parseError);
+      console.error('📄 JSON error at position:', parseError.message);
+
+      // Tentativa de recuperação: encontrar e corrigir erros comuns
+      try {
+        // Remover vírgulas duplicadas ou extras
+        jsonStr = jsonStr
+          .replace(/,\s*,/g, ',')
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          .replace(/}\s*{/g, '},{')
+          .replace(/]\s*\[/g, '],[');
+
+        console.log('🔄 Attempting recovery with cleaned JSON...');
+        result = JSON.parse(jsonStr);
+        console.log('✅ Recovery successful!');
+      } catch (recoveryError) {
+        console.error('❌ Recovery failed:', recoveryError);
+        console.error('📄 Full JSON string (last 200 chars):', jsonStr.substring(Math.max(0, jsonStr.length - 200)));
+        throw new Error(`JSON parse failed: ${parseError.message}. Position: ${parseError.message.match(/position (\d+)/)?.[1] || 'unknown'}`);
+      }
+    }
     if (!result.meals || !Array.isArray(result.meals)) throw new Error('Invalid structure');
 
     // Calcular totais para validação
