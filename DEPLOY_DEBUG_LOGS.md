@@ -1,60 +1,120 @@
-# Deploy Edge Function com Logs de Debug
+# Deploy Edge Function com Verificação Imediata
 
-## O que foi alterado
+## ⚠️ Problema Identificado
 
-Adicionei logs detalhados na edge function `adjust-macros` para debug do processo de deleção de meals:
+Edge Function retorna `{success: true, meals: 4}` mas quando você faz refresh **0 meals** aparecem!
+
+Isso significa que as meals estão sendo criadas mas:
+- ❌ Não estão sendo salvas no banco (RLS ou permissões)
+- ❌ Estão sendo revertidas (transação implícita)
+- ❌ Estão sendo deletadas logo depois
+
+## 🔍 O Que Foi Adicionado
+
+Verificação IMEDIATA após inserir as meals para ver se elas realmente foram salvas:
 
 ```typescript
-// Antes de deletar
-console.log(`🗑️ Checking for existing meals in diet ${dietId}...`);
-console.log(`📊 Found ${existingMeals?.length || 0} existing meals to delete`);
+console.log(`✅ All meals processed for diet ${dietId}`);
 
-// Durante a deleção
-console.log(`🗑️ Deleting meal_foods for ${mealIds.length} meals...`);
-console.log(`🗑️ Deleting ${mealIds.length} meals...`);
-console.log(`✅ Deleted ${mealIds.length} meals and their foods`);
+// Verificar imediatamente se as meals foram salvas
+const { data: verifyMeals, error: verifyError } = await supabase
+  .from('meals')
+  .select('id, name')
+  .eq('diet_id', dietId);
+
+if (verifyError) {
+  console.error('❌ Error verifying meals:', verifyError);
+} else {
+  console.log(`🔍 Verification: ${verifyMeals?.length || 0} meals found in database for diet ${dietId}`);
+  if (verifyMeals && verifyMeals.length > 0) {
+    verifyMeals.forEach((m: any) => console.log(`  ✓ ${m.name} (${m.id})`));
+  } else {
+    console.error('⚠️ WARNING: No meals found after insertion!');
+  }
+}
 ```
 
-## Como fazer o deploy
+## 📝 Como Fazer Deploy
 
-### Via Supabase Dashboard
+### Via Supabase Dashboard (Recomendado)
 
-1. Acesse: https://supabase.com/dashboard
+1. Acesse https://supabase.com/dashboard
 2. Selecione seu projeto
-3. Vá em **Edge Functions** no menu lateral
-4. Clique na function **adjust-macros**
-5. Clique em **Edit Function**
-6. Cole o código do arquivo: `supabase/functions/adjust-macros/index.ts`
+3. Vá em **Edge Functions**
+4. Clique em **adjust-macros**
+5. Clique em **Edit** ou **Deploy New Version**
+6. Cole TODO o conteúdo de `supabase/functions/adjust-macros/index.ts`
 7. Clique em **Deploy**
 
-### Via Supabase CLI (se tiver configurado)
+### Via Supabase CLI
 
 ```bash
 supabase functions deploy adjust-macros
 ```
 
-## O que esperar após o deploy
+## 🧪 Como Testar
 
-Quando você testar novamente o fluxo Manual, verá nos logs:
+1. Faça deploy da edge function atualizada
+2. No app, limpe as meals antigas (se houver):
+   - Execute `cleanup-orphaned-meals.sql` no SQL Editor
+3. Use o modo **Manual** para criar uma dieta
+4. **IMPORTANTE:** Abra os logs da Edge Function no dashboard:
+   - Supabase Dashboard > Edge Functions > adjust-macros > **Logs** (aba)
+5. Procure pelas linhas de verificação
 
+## 🎯 Resultados Possíveis
+
+### ✅ Cenário 1: Meals ESTÃO sendo salvas
 ```
-🗑️ Checking for existing meals in diet xxx...
-📊 Found 6 existing meals to delete
-🗑️ Deleting meal_foods for 6 meals...
-🗑️ Deleting 6 meals...
-✅ Deleted 6 meals and their foods
-📝 Inserting 4 meals...
+✅ All meals processed for diet 130895fb...
+🔍 Verification: 4 meals found in database for diet 130895fb...
+  ✓ Café da Manhã (uuid-1)
+  ✓ Lanche da Manhã (uuid-2)
+  ✓ Almoço (uuid-3)
+  ✓ Jantar (uuid-4)
 ```
 
-Isso nos dirá exatamente:
-- ✅ Quantas meals existiam antes
-- ✅ Se a deleção funcionou
-- ✅ Quantas meals novas foram inseridas
-- ✅ Se há erros na deleção
+**Conclusão:** As meals estão sendo salvas! O problema é no REFRESH do frontend.
+**Solução:** Já foi corrigido no ViewDietModal.tsx (delay de 2s + logs detalhados)
 
-## Próximos passos após o deploy
+### ❌ Cenário 2: Meals NÃO estão sendo salvas
+```
+✅ All meals processed for diet 130895fb...
+🔍 Verification: 0 meals found in database for diet 130895fb...
+⚠️ WARNING: No meals found after insertion!
+```
 
-1. **Teste o fluxo Manual** novamente
-2. **Copie TODOS os logs** do console (incluindo os da edge function)
-3. **Envie os logs** para análise
-4. Com os novos logs, poderei identificar exatamente onde está o problema!
+**Conclusão:** As meals NÃO estão sendo salvas! Problema de RLS ou transação.
+**Solução:** Precisamos investigar as políticas RLS ou usar transaction explícita.
+
+### ⚠️ Cenário 3: Erro na verificação
+```
+✅ All meals processed for diet 130895fb...
+❌ Error verifying meals: {error details}
+```
+
+**Conclusão:** Erro de permissão ou query.
+**Solução:** Verificar as políticas RLS de leitura.
+
+## 🔧 Próximos Passos
+
+Após fazer deploy e testar:
+
+1. **Copie os logs da Edge Function** do Supabase Dashboard (especialmente as linhas com 🔍)
+2. **Copie os logs do Frontend** (especialmente após o refresh com ⏰ e 📦)
+3. Me envie AMBOS os logs
+
+Com esses logs vou saber EXATAMENTE onde está o problema:
+- Se as meals estão sendo salvas → problema é no refresh
+- Se as meals NÃO estão sendo salvas → problema é RLS ou transação
+
+## 📋 Checklist
+
+- [ ] Fez deploy da edge function atualizada
+- [ ] Limpou meals antigas com `cleanup-orphaned-meals.sql`
+- [ ] Testou o modo Manual
+- [ ] Copiou logs da Edge Function (Dashboard > Edge Functions > adjust-macros > Logs)
+- [ ] Copiou logs do Frontend (Console do navegador)
+- [ ] Enviou AMBOS os logs para análise
+
+Vamos resolver isso de uma vez! 🎉

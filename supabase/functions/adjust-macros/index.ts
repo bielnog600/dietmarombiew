@@ -246,6 +246,23 @@ Responda APENAS com JSON no formato:
 
       console.log(`✅ All meals processed for diet ${dietId}`);
 
+      // Verificar imediatamente se as meals foram salvas
+      const { data: verifyMeals, error: verifyError } = await supabase
+        .from('meals')
+        .select('id, name')
+        .eq('diet_id', dietId);
+
+      if (verifyError) {
+        console.error('❌ Error verifying meals:', verifyError);
+      } else {
+        console.log(`🔍 Verification: ${verifyMeals?.length || 0} meals found in database for diet ${dietId}`);
+        if (verifyMeals && verifyMeals.length > 0) {
+          verifyMeals.forEach((m: any) => console.log(`  ✓ ${m.name} (${m.id})`));
+        } else {
+          console.error('⚠️ WARNING: No meals found after insertion!');
+        }
+      }
+
       return new Response(
         JSON.stringify({ success: true, meals: dietPlan.meals.length }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
