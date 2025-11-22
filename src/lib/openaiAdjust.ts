@@ -54,5 +54,12 @@ export async function adjustMacrosWithAI(
   }
 
   const data = await response.json();
-  console.log('✅ Diet adjusted successfully:', data);
+
+  // Log detalhado da resposta
+  if (data.totals && data.targets) {
+    console.log(`🎉 Success! ${data.meals} meals | Total: ${data.totals.calories}kcal ${data.totals.protein}P ${data.totals.carbs}C ${data.totals.fats}F | Target: ${data.targets.calories}kcal ${data.targets.protein}P ${data.targets.carbs}C ${data.targets.fats}F`);
+    if (data.style) console.log(`🎨 Style: ${data.style} | Seed: ${data.seed}`);
+  } else {
+    console.log('✅ Diet adjusted successfully:', data);
+  }
 }

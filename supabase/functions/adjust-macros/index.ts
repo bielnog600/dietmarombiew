@@ -592,7 +592,24 @@ ${selectedModel ? '- Priorize alimentos do MODELO ALIMENTAR quando disponíveis'
 
     console.log('🎉 Success!');
 
-    return new Response(JSON.stringify({ success: true, meals: result.meals.length }), {
+    return new Response(JSON.stringify({
+      success: true,
+      meals: result.meals.length,
+      totals: {
+        calories: Math.round(totalCals),
+        protein: Math.round(totalProt),
+        carbs: Math.round(totalCarbs),
+        fats: Math.round(totalFats)
+      },
+      targets: {
+        calories: targetCalories,
+        protein: targetProtein,
+        carbs: targetCarbs,
+        fats: targetFats
+      },
+      style: randomStyle,
+      seed: combinedSeed
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
