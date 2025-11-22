@@ -163,6 +163,10 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
       console.log('🔄 Refreshing diet data from database...');
 
+      // Adicionar timestamp para forçar bypass do cache
+      const timestamp = Date.now();
+      console.log(`⏰ Fetch timestamp: ${timestamp}`);
+
       // Reload all week diets - força fresh data do servidor
       const { data: diets, error: fetchError } = await supabase
         .from('diets')
@@ -188,6 +192,16 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           const mealCount = d.meals?.length || 0;
           const foodCount = d.meals?.reduce((sum: number, m: any) => sum + (m.meal_foods?.length || 0), 0) || 0;
           console.log(`  📅 Day ${d.day_of_week}: ${mealCount} meals, ${foodCount} foods`);
+
+          // Log detalhado das meals para debug
+          if (d.meals && d.meals.length > 0) {
+            d.meals.forEach((meal: any) => {
+              console.log(`    🍽️ ${meal.name}: ${meal.meal_foods?.length || 0} foods`);
+              meal.meal_foods?.forEach((mf: any) => {
+                console.log(`      - ${mf.food.name} (${mf.quantity * 100}g)`);
+              });
+            });
+          }
         });
 
         setAllWeekDiets(diets);
@@ -196,6 +210,18 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         const currentDayDiet = diets.find(d => d.day_of_week === selectedDayOfWeek);
         if (currentDayDiet) {
           console.log(`📌 Setting current day (${selectedDayOfWeek}) with ${currentDayDiet.meals?.length || 0} meals`);
+          console.log('📦 Current day diet object:', JSON.stringify({
+            id: currentDayDiet.id,
+            day_of_week: currentDayDiet.day_of_week,
+            calories: currentDayDiet.calories,
+            meals_count: currentDayDiet.meals?.length,
+            meals: currentDayDiet.meals?.map(m => ({
+              id: m.id,
+              name: m.name,
+              foods_count: m.meal_foods?.length
+            }))
+          }, null, 2));
+
           setLocalDiet(currentDayDiet);
           setPreviewTotals({});
           if (currentDayDiet.macros) {
@@ -206,6 +232,8 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
             });
           }
           setCalorieForm(currentDayDiet.calories);
+        } else {
+          console.error(`❌ No diet found for day ${selectedDayOfWeek}!`);
         }
       }
     } catch (err) {
@@ -832,6 +860,10 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
         const result = await response.json();
         console.log('✅ Success:', result);
+
+        // Aguardar um pouco antes de recarregar (também no modo dia único)
+        console.log('⏳ Aguardando finalização da operação...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         alert('✅ Dieta gerada com sucesso com seus alimentos!');
       }
