@@ -162,6 +162,8 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       setError('');
 
       console.log('🔄 Refreshing diet data from database...');
+      console.log(`📍 Current localDiet.id BEFORE refresh: ${localDiet?.id}`);
+      console.log(`📍 Current selectedDayOfWeek: ${selectedDayOfWeek}`);
 
       // Adicionar timestamp para forçar bypass do cache
       const timestamp = Date.now();
@@ -188,10 +190,11 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
 
       if (diets) {
         console.log(`✅ Loaded ${diets.length} diets from database`);
+        console.log('📋 Diet IDs mapping:');
         diets.forEach(d => {
           const mealCount = d.meals?.length || 0;
           const foodCount = d.meals?.reduce((sum: number, m: any) => sum + (m.meal_foods?.length || 0), 0) || 0;
-          console.log(`  📅 Day ${d.day_of_week}: ${mealCount} meals, ${foodCount} foods`);
+          console.log(`  📅 Day ${d.day_of_week}: ${mealCount} meals, ${foodCount} foods | ID: ${d.id}`);
 
           // Log detalhado das meals para debug
           if (d.meals && d.meals.length > 0) {
@@ -210,6 +213,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         const currentDayDiet = diets.find(d => d.day_of_week === selectedDayOfWeek);
         if (currentDayDiet) {
           console.log(`📌 Setting current day (${selectedDayOfWeek}) with ${currentDayDiet.meals?.length || 0} meals`);
+          console.log(`🔄 Diet ID changed from ${localDiet?.id} to ${currentDayDiet.id}`);
           console.log('📦 Current day diet object:', JSON.stringify({
             id: currentDayDiet.id,
             day_of_week: currentDayDiet.day_of_week,
