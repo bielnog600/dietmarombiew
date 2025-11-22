@@ -5,6 +5,7 @@ import type { Diet, Food, MacroDistribution } from '../types';
 import AddFoodModal from './AddFoodModal';
 import PasteDietModal from './PasteDietModal';
 import { FoodSubstitutionModal } from './FoodSubstitutionModal';
+import BaseFoodSelectionModal from './BaseFoodSelectionModal';
 import { useTranslation } from '../translations';
 import { generateDiet } from '../lib/diet';
 import { adjustMacrosWithStrategy } from '../lib/macroAdjust';
@@ -681,12 +682,18 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     }
   };
 
-  const handleAutoAdjustWithStrategy = async (strategy: 'cutting' | 'bulking', dietModel?: string) => {
+  const handleAutoAdjustWithStrategy = async (
+    strategy: 'cutting' | 'bulking',
+    dietModel?: string,
+    baseFoodsSelection?: Record<string, string[]>
+  ) => {
     if (!localDiet) return;
 
     try {
       setError('');
       setGeneratingDiet(true);
+
+      console.log('🎯 Base foods selected:', baseFoodsSelection);
 
       if (replicateToAllDays) {
         // Replicar para todos os dias da semana
@@ -704,7 +711,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         // Ajustar cada dieta com a IA, usando mesmos alimentos mas respeitando metas
         for (const diet of allDiets || []) {
           console.log(`⏳ Adjusting diet for day ${diet.day_of_week}...`);
-          await adjustMacrosWithAI(diet, strategy, dietModel);
+          await adjustMacrosWithAI(diet, strategy, dietModel, baseFoodsSelection);
           console.log(`✅ Diet adjusted for day ${diet.day_of_week}`);
           // Pequeno delay entre requisições
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -716,7 +723,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
         alert(`✅ Dietas ajustadas em ${allDiets?.length || 0} dias da semana!`);
       } else {
         // Ajustar apenas o dia atual
-        await adjustMacrosWithAI(localDiet, strategy, dietModel);
+        await adjustMacrosWithAI(localDiet, strategy, dietModel, baseFoodsSelection);
         alert('✅ Dieta ajustada com sucesso!');
       }
 
@@ -724,6 +731,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
       setShowMacroStrategyModal(false);
       setShowDietModelModal(false);
       setSelectedStrategy(null);
+      setBaseFoods({});
 
       // Recarregar dados da dieta
       await refreshDietData();
@@ -1693,7 +1701,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   <button
                     onClick={() => {
                       setSelectedDietModel('low-carb');
-                      handleAutoAdjustWithStrategy(selectedStrategy!, 'low-carb');
+                      setShowBaseFoodSelection(true);
                     }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1710,7 +1718,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   <button
                     onClick={() => {
                       setSelectedDietModel('balanced-cutting');
-                      handleAutoAdjustWithStrategy(selectedStrategy!, 'balanced-cutting');
+                      setShowBaseFoodSelection(true);
                     }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1728,7 +1736,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   <button
                     onClick={() => {
                       setSelectedDietModel('high-carb');
-                      handleAutoAdjustWithStrategy(selectedStrategy!, 'high-carb');
+                      setShowBaseFoodSelection(true);
                     }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1746,7 +1754,7 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                   <button
                     onClick={() => {
                       setSelectedDietModel('balanced-bulking');
-                      handleAutoAdjustWithStrategy(selectedStrategy!, 'balanced-bulking');
+                      setShowBaseFoodSelection(true);
                     }}
                     disabled={generatingDiet}
                     className="w-full p-4 rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1864,6 +1872,21 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
             </div>
           </div>
         )}
+
+        <BaseFoodSelectionModal
+          isOpen={showBaseFoodSelection}
+          onClose={() => {
+            setShowBaseFoodSelection(false);
+            setBaseFoods({});
+          }}
+          meals={['Café da Manhã', 'Lanche da Manhã', 'Almoço', 'Lanche da Tarde', 'Jantar']}
+          allFoods={allFoods}
+          onComplete={(selectedFoods) => {
+            setBaseFoods(selectedFoods);
+            setShowBaseFoodSelection(false);
+            handleAutoAdjustWithStrategy(selectedStrategy!, selectedDietModel!, selectedFoods);
+          }}
+        />
 
       </div>
     </div>

@@ -20,9 +20,11 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = await req.json();
-    const { dietId, strategy, dietModel, targetCalories, targetProtein, targetCarbs, targetFats, userId, manualFoods } = body;
+    const { dietId, strategy, dietModel, targetCalories, targetProtein, targetCarbs, targetFats, userId, manualFoods, baseFoods } = body;
 
     if (!dietId || !userId) throw new Error('Missing required parameters');
+
+    console.log('📦 Request parameters:', { dietId, strategy, dietModel, hasManualFoods: !!manualFoods, hasBaseFoods: !!baseFoods });
 
     // Se manualFoods foi enviado, processar seleção manual
     if (manualFoods && Array.isArray(manualFoods) && manualFoods.length > 0) {
@@ -345,6 +347,35 @@ Responda APENAS com JSON no formato:
 
     const selectedModel = dietModel && dietModels[dietModel] ? dietModels[dietModel] : '';
 
+    // Processar alimentos base se fornecidos
+    let baseFoodsPrompt = '';
+    if (baseFoods && Object.keys(baseFoods).length > 0) {
+      console.log('🎯 Processing base foods selection:', baseFoods);
+
+      const baseFoodsList = Object.entries(baseFoods).map(([mealName, foodIds]) => {
+        if (!Array.isArray(foodIds) || foodIds.length === 0) return null;
+
+        const foods = foodIds.map(foodId => {
+          const food = allFoods.find(f => f.id === foodId);
+          return food ? `${food.name} (${food.calories}kcal, ${food.protein}P, ${food.carbs}C, ${food.fats}F/100g)` : null;
+        }).filter(Boolean);
+
+        return foods.length > 0 ? `${mealName}: ${foods.join(', ')}` : null;
+      }).filter(Boolean);
+
+      if (baseFoodsList.length > 0) {
+        baseFoodsPrompt = `\n👨‍🍳 ALIMENTOS BASE PRÉ-SELECIONADOS PELO USUÁRIO:
+${baseFoodsList.join('\n')}
+
+⚠️ OBRIGATÓRIO: Você DEVE incluir estes alimentos nas refeições especificadas!
+- Use EXATAMENTE estes alimentos nas refeições correspondentes
+- Adicione OUTROS alimentos para completar as macros e calorias
+- Calcule as quantidades para bater nas metas
+\n`;
+        console.log('📋 Base foods prompt:', baseFoodsPrompt);
+      }
+    }
+
     // Configurações específicas para cada estratégia
     let strategyConfig = {
       mealCount: '5-6',
@@ -394,7 +425,7 @@ Responda APENAS com JSON puro, sem texto adicional.`;
 ${strategyConfig.focus}
 
 ${selectedModel ? `\n🎨 MODELO ALIMENTAR A SEGUIR:\n${selectedModel}\n\n⚠️ IMPORTANTE: Use este modelo como REFERÊNCIA PRINCIPAL para escolher os tipos de alimentos. Priorize alimentos similares aos mencionados no modelo!\n` : ''}
-
+${baseFoodsPrompt}
 🥗 ALIMENTOS DISPONÍVEIS (valores por 100g):
 ${foodList}
 
