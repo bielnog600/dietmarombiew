@@ -108,6 +108,22 @@ export interface WeightHistory {
   created_at: string;
 }
 
+export interface BodyMeasurements {
+  id: string;
+  user_id: string;
+  waist: number | null;
+  abdomen: number | null;
+  left_arm: number | null;
+  right_arm: number | null;
+  left_thigh: number | null;
+  right_thigh: number | null;
+  hips: number | null;
+  chest: number | null;
+  notes: string;
+  recorded_by: string;
+  created_at: string;
+}
+
 export interface WaterRecord {
   id: string;
   user_id: string;
