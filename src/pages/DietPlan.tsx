@@ -564,8 +564,6 @@ const DietPlan = () => {
       default:
         return (
           <div className="space-y-2">
-            <NotificationBanner />
-
             <div>
               <div className="mb-4">
                 <h2 className="text-2xl font-bold text-[#f8c045]">{t('dietPlan')}</h2>
@@ -802,6 +800,8 @@ const DietPlan = () => {
 
   return (
     <div className="flex flex-col h-full">
+      <NotificationBanner />
+
       <div className="bg-[rgb(28,28,28)] p-6 border-b border-[#f8c045]/10">
         <div className="flex items-center justify-between">
           <div>
@@ -811,8 +811,8 @@ const DietPlan = () => {
           </div>
           {user?.photo_url ? (
             <div className="w-12 h-12 rounded-full border-2 border-[#f8c045] overflow-hidden">
-              <img 
-                src={user.photo_url} 
+              <img
+                src={user.photo_url}
                 alt="Profile"
                 className="w-full h-full object-cover"
               />

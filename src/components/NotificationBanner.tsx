@@ -10,12 +10,14 @@ interface NotificationItem {
   icon: React.ReactNode;
   title: string;
   message: string;
+  isNew?: boolean;
 }
 
 export default function NotificationBanner() {
   const { user } = useAuthStore();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user) {
@@ -160,12 +162,20 @@ export default function NotificationBanner() {
         });
       }
 
-      // Filter out dismissed notifications
+      // Filter out dismissed notifications and mark new ones
       const filteredNotifications = newNotifications.filter(
         notif => !dismissedIds.has(notif.id)
-      );
+      ).map(notif => ({
+        ...notif,
+        isNew: !notifications.find(n => n.id === notif.id)
+      }));
 
       setNotifications(filteredNotifications);
+
+      // Remove isNew flag after animation
+      setTimeout(() => {
+        setNotifications(prev => prev.map(n => ({ ...n, isNew: false })));
+      }, 500);
 
     } catch (error) {
       console.error('Error checking notifications:', error);
@@ -173,13 +183,24 @@ export default function NotificationBanner() {
   };
 
   const dismissNotification = (id: string) => {
-    setDismissedIds(prev => new Set(prev).add(id));
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    // Add to dismissing set for exit animation
+    setDismissingIds(prev => new Set(prev).add(id));
 
-    // Save to localStorage
-    const dismissed = Array.from(dismissedIds);
-    dismissed.push(id);
-    localStorage.setItem('dismissedNotifications', JSON.stringify(dismissed));
+    // Wait for animation to complete
+    setTimeout(() => {
+      setDismissedIds(prev => new Set(prev).add(id));
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setDismissingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+
+      // Save to localStorage
+      const dismissed = Array.from(dismissedIds);
+      dismissed.push(id);
+      localStorage.setItem('dismissedNotifications', JSON.stringify(dismissed));
+    }, 300);
   };
 
   // Load dismissed notifications from localStorage
@@ -213,47 +234,74 @@ export default function NotificationBanner() {
   if (notifications.length === 0) return null;
 
   return (
-    <div className="space-y-2 mb-4">
-      {notifications.map((notification) => (
-        <div
-          key={notification.id}
-          className={`rounded-lg p-4 border ${
-            notification.type === 'success'
-              ? 'bg-green-500/10 border-green-500/30'
-              : notification.type === 'warning'
-              ? 'bg-yellow-500/10 border-yellow-500/30'
-              : 'bg-blue-500/10 border-blue-500/30'
-          }`}
-        >
-          <div className="flex items-start gap-3">
+    <div className="fixed top-4 left-0 right-0 z-50 px-4 space-y-2 pointer-events-none">
+      <div className="max-w-2xl mx-auto space-y-2">
+        {notifications.map((notification) => {
+          const isDismissing = dismissingIds.has(notification.id);
+          return (
             <div
-              className={`flex-shrink-0 ${
+              key={notification.id}
+              className={`rounded-lg p-4 border shadow-2xl backdrop-blur-sm pointer-events-auto transition-all duration-300 transform ${
+                notification.isNew
+                  ? 'opacity-0 -translate-y-4 scale-95'
+                  : isDismissing
+                  ? 'opacity-0 translate-x-full scale-95'
+                  : 'opacity-100 translate-y-0 scale-100'
+              } ${
                 notification.type === 'success'
-                  ? 'text-green-400'
+                  ? 'bg-green-500/20 border-green-500/50'
                   : notification.type === 'warning'
-                  ? 'text-yellow-400'
-                  : 'text-blue-400'
+                  ? 'bg-yellow-500/20 border-yellow-500/50'
+                  : 'bg-blue-500/20 border-blue-500/50'
               }`}
+              style={{
+                animation: notification.isNew ? 'slideInDown 0.5s ease-out forwards' : undefined
+              }}
             >
-              {notification.icon}
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex-shrink-0 ${
+                    notification.type === 'success'
+                      ? 'text-green-400'
+                      : notification.type === 'warning'
+                      ? 'text-yellow-400'
+                      : 'text-blue-400'
+                  }`}
+                >
+                  {notification.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-semibold text-white mb-1">
+                    {notification.title}
+                  </h4>
+                  <p className="text-sm text-gray-300">
+                    {notification.message}
+                  </p>
+                </div>
+                <button
+                  onClick={() => dismissNotification(notification.id)}
+                  className="flex-shrink-0 text-gray-400 hover:text-white transition-colors duration-200 hover:rotate-90 transform"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-white mb-1">
-                {notification.title}
-              </h4>
-              <p className="text-sm text-gray-300">
-                {notification.message}
-              </p>
-            </div>
-            <button
-              onClick={() => dismissNotification(notification.id)}
-              className="flex-shrink-0 text-gray-400 hover:text-white transition"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      ))}
+          );
+        })}
+      </div>
+
+      <style>{`
+        @keyframes slideInDown {
+          from {
+            opacity: 0;
+            transform: translateY(-1rem) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }
