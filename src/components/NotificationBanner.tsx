@@ -18,6 +18,7 @@ export default function NotificationBanner() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
+  const [swipeStates, setSwipeStates] = useState<Record<string, { x: number; swiping: boolean }>>({});
 
   useEffect(() => {
     if (user) {
@@ -182,6 +183,43 @@ export default function NotificationBanner() {
     }
   };
 
+  const handleSwipeStart = (id: string, clientX: number) => {
+    setSwipeStates(prev => ({
+      ...prev,
+      [id]: { x: clientX, swiping: true }
+    }));
+  };
+
+  const handleSwipeMove = (id: string, clientX: number) => {
+    const state = swipeStates[id];
+    if (!state?.swiping) return;
+
+    const deltaX = clientX - state.x;
+    if (deltaX > 0) {
+      setSwipeStates(prev => ({
+        ...prev,
+        [id]: { ...state, x: clientX }
+      }));
+    }
+  };
+
+  const handleSwipeEnd = (id: string, clientX: number) => {
+    const state = swipeStates[id];
+    if (!state?.swiping) return;
+
+    const deltaX = clientX - state.x;
+
+    setSwipeStates(prev => {
+      const newState = { ...prev };
+      delete newState[id];
+      return newState;
+    });
+
+    if (deltaX > 100) {
+      dismissNotification(id);
+    }
+  };
+
   const dismissNotification = (id: string) => {
     // Add to dismissing set for exit animation
     setDismissingIds(prev => new Set(prev).add(id));
@@ -238,10 +276,28 @@ export default function NotificationBanner() {
       <div className="max-w-2xl mx-auto space-y-2">
         {notifications.map((notification) => {
           const isDismissing = dismissingIds.has(notification.id);
+          const swipeState = swipeStates[notification.id];
+          const swipeOffset = swipeState?.swiping ? Math.max(0, swipeState.x) : 0;
+
           return (
             <div
               key={notification.id}
-              className={`rounded-lg p-4 border shadow-2xl backdrop-blur-sm pointer-events-auto transition-all duration-300 transform ${
+              onTouchStart={(e) => handleSwipeStart(notification.id, e.touches[0].clientX)}
+              onTouchMove={(e) => handleSwipeMove(notification.id, e.touches[0].clientX)}
+              onTouchEnd={(e) => handleSwipeEnd(notification.id, e.changedTouches[0].clientX)}
+              onMouseDown={(e) => handleSwipeStart(notification.id, e.clientX)}
+              onMouseMove={(e) => {
+                if (e.buttons === 1) {
+                  handleSwipeMove(notification.id, e.clientX);
+                }
+              }}
+              onMouseUp={(e) => handleSwipeEnd(notification.id, e.clientX)}
+              onMouseLeave={(e) => {
+                if (swipeState?.swiping) {
+                  handleSwipeEnd(notification.id, e.clientX);
+                }
+              }}
+              className={`rounded-lg p-4 border shadow-2xl backdrop-blur-sm pointer-events-auto transition-all duration-300 transform cursor-grab active:cursor-grabbing select-none ${
                 notification.isNew
                   ? 'opacity-0 -translate-y-4 scale-95'
                   : isDismissing
@@ -255,7 +311,9 @@ export default function NotificationBanner() {
                   : 'bg-blue-500/20 border-blue-500/50'
               }`}
               style={{
-                animation: notification.isNew ? 'slideInDown 0.5s ease-out forwards' : undefined
+                animation: notification.isNew ? 'slideInDown 0.5s ease-out forwards' : undefined,
+                transform: swipeState?.swiping ? `translateX(${swipeOffset}px)` : undefined,
+                transition: swipeState?.swiping ? 'none' : undefined
               }}
             >
               <div className="flex items-start gap-3">
