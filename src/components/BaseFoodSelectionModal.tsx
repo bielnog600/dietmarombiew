@@ -26,7 +26,16 @@ export default function BaseFoodSelectionModal({
   const currentMeal = meals[currentStep];
   const currentMealFoods = selectedFoods[currentMeal] || [];
 
-  const filteredFoods = allFoods.filter(food =>
+  // Remove duplicate foods by name, keeping the first occurrence
+  const uniqueFoods = allFoods.reduce((acc: Food[], current) => {
+    const isDuplicate = acc.find(food => food.name === current.name);
+    if (!isDuplicate) {
+      acc.push(current);
+    }
+    return acc;
+  }, []);
+
+  const filteredFoods = uniqueFoods.filter(food =>
     food.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
