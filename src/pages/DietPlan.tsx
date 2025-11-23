@@ -169,6 +169,39 @@ const DietPlan = () => {
     ) || { calories: 0, protein: 0, carbs: 0, fats: 0 };
   };
 
+  const sortMealsByPredefinedOrder = (meals: any[]) => {
+    const mealOrder = [
+      'Café da Manhã',
+      'Lanche da Manhã',
+      'Almoço',
+      'Lanche da Tarde',
+      'Pré-treino',
+      'Pós-treino',
+      'Jantar',
+      'Ceia',
+      'Suplementos'
+    ];
+
+    return [...meals].sort((a, b) => {
+      const indexA = mealOrder.indexOf(a.name);
+      const indexB = mealOrder.indexOf(b.name);
+
+      // Se ambos estão na lista, ordenar pela posição na lista
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+
+      // Se apenas A está na lista, A vem primeiro
+      if (indexA !== -1) return -1;
+
+      // Se apenas B está na lista, B vem primeiro
+      if (indexB !== -1) return 1;
+
+      // Se nenhum está na lista, manter ordem original
+      return 0;
+    });
+  };
+
   const handleCarbDayChange = async (type: 'high' | 'moderate' | 'low', newMacros: MacroDistribution) => {
     if (!diet) return;
 
@@ -725,7 +758,7 @@ const DietPlan = () => {
             )}
 
             <div className="space-y-3">
-              {diet?.meals?.map((meal, index) => {
+              {sortMealsByPredefinedOrder(diet?.meals || []).map((meal, index) => {
                 const mealMacros = calculateMealTotals(meal);
 
                 return (
