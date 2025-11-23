@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, ChevronLeft, ChevronRight, Upload, ArrowRight, ArrowRightLeft, Edit2, Check } from 'lucide-react';
+import { X, Plus, Trash2, ChevronLeft, ChevronRight, ArrowRight, ArrowRightLeft, Edit2, Check, Copy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Diet, Food, MacroDistribution } from '../types';
 import AddFoodModal from './AddFoodModal';
-import PasteDietModal from './PasteDietModal';
 import { FoodSubstitutionModal } from './FoodSubstitutionModal';
 import BaseFoodSelectionModal from './BaseFoodSelectionModal';
 import { useTranslation } from '../translations';
@@ -21,7 +20,6 @@ interface ViewDietModalProps {
 
 export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewDietModalProps) {
   const [showAddFoodModal, setShowAddFoodModal] = useState(false);
-  const [showPasteDietModal, setShowPasteDietModal] = useState(false);
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
   const [editingPortions, setEditingPortions] = useState<Record<string, number>>({});
   const [savingPortions, setSavingPortions] = useState<Record<string, boolean>>({});
@@ -1009,6 +1007,80 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
     setTransferTargetMeal('');
   };
 
+  const handleCopyDietToAllDays = async () => {
+    if (!localDiet) return;
+
+    const confirmed = confirm(
+      '⚠️ Deseja copiar esta dieta para TODOS os dias da semana?\n\n' +
+      'Esta ação irá:\n' +
+      '✓ Copiar todas as refeições e alimentos deste dia\n' +
+      '✓ Substituir as dietas existentes nos outros dias\n' +
+      '✓ Manter as mesmas quantidades e porções\n\n' +
+      'Você pode ajustar as quantidades depois para atingir as metas de cada dia.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setError('');
+      setGeneratingDiet(true);
+
+      // Get current diet meals with foods
+      const currentMeals = localDiet.meals || [];
+
+      // Get all other week diets
+      const otherDiets = allWeekDiets.filter(d => d.day_of_week !== selectedDayOfWeek);
+
+      for (const targetDiet of otherDiets) {
+        // Delete existing meals for target diet
+        const { error: deleteError } = await supabase
+          .from('meals')
+          .delete()
+          .eq('diet_id', targetDiet.id);
+
+        if (deleteError) throw deleteError;
+
+        // Copy each meal
+        for (const meal of currentMeals) {
+          // Create new meal
+          const { data: newMeal, error: mealError } = await supabase
+            .from('meals')
+            .insert({
+              diet_id: targetDiet.id,
+              name: meal.name
+            })
+            .select()
+            .single();
+
+          if (mealError) throw mealError;
+
+          // Copy meal foods
+          if (meal.meal_foods && meal.meal_foods.length > 0) {
+            const mealFoodsToInsert = meal.meal_foods.map(mf => ({
+              meal_id: newMeal.id,
+              food_id: mf.food.id,
+              quantity: mf.quantity
+            }));
+
+            const { error: foodsError } = await supabase
+              .from('meal_foods')
+              .insert(mealFoodsToInsert);
+
+            if (foodsError) throw foodsError;
+          }
+        }
+      }
+
+      alert('✅ Dieta copiada com sucesso para todos os dias da semana!');
+      await refreshDietData();
+    } catch (err) {
+      console.error('Error copying diet to all days:', err);
+      setError('Erro ao copiar dieta para todos os dias');
+    } finally {
+      setGeneratingDiet(false);
+    }
+  };
+
   const handleFoodAdded = async (foodId: string, quantity: number) => {
     try {
       if (addToAllDays && selectedMealId) {
@@ -1104,11 +1176,12 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           </div>
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => setShowPasteDietModal(true)}
+              onClick={handleCopyDietToAllDays}
               className="text-[#f8c045] hover:text-[#e6b041] transition flex items-center"
+              title="Copiar esta dieta para todos os dias da semana"
             >
-              <Upload size={20} className="mr-2" />
-              Colar Modelo de Dieta
+              <Copy size={20} className="mr-2" />
+              Copiar para Todos os Dias
             </button>
             <button
               onClick={() => {
@@ -1679,19 +1752,6 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
           />
         )}
 
-        {showPasteDietModal && localDiet && (
-          <PasteDietModal
-            isOpen={showPasteDietModal}
-            onClose={() => setShowPasteDietModal(false)}
-            userId={localDiet.user_id}
-            dietId={localDiet.id}
-            meals={localDiet.meals || []}
-            onDietGenerated={async () => {
-              setShowPasteDietModal(false);
-              await refreshDietData();
-            }}
-          />
-        )}
 
         {substitutionModalOpen && selectedFoodForSubstitution && (
           <FoodSubstitutionModal
