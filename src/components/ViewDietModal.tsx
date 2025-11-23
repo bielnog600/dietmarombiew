@@ -1862,6 +1862,20 @@ export default function ViewDietModal({ isOpen, onClose, diet, userName }: ViewD
                       Ganho de massa com foco em alimentos de qualidade, menos processados e fontes limpas de carboidratos
                     </div>
                   </button>
+
+                  <button
+                    onClick={() => {
+                      setSelectedDietModel('flexible');
+                      setShowBaseFoodSelection(true);
+                    }}
+                    disabled={generatingDiet}
+                    className="w-full p-4 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="font-bold mb-2 text-lg">🎯 Dieta Flexível</div>
+                    <div className="text-sm opacity-90">
+                      Máxima flexibilidade com foco em macros. Permite encaixe de diferentes alimentos mantendo o superávit calórico e atingindo as metas de proteína, carboidratos e gorduras
+                    </div>
+                  </button>
                 </div>
               )}
 
