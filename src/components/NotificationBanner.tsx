@@ -171,8 +171,24 @@ export default function NotificationBanner() {
         isNew: !notifications.find(n => n.id === notif.id)
       }));
 
-      // Show only one notification at a time
-      setNotifications(filteredNotifications.slice(0, 1));
+      // Prioritize calorie and water notifications
+      const calorieNotif = filteredNotifications.find(n =>
+        n.id.startsWith('calories-')
+      );
+      const waterNotif = filteredNotifications.find(n =>
+        n.id.startsWith('water-')
+      );
+
+      const priorityNotifications = [];
+      if (calorieNotif) priorityNotifications.push(calorieNotif);
+      if (waterNotif) priorityNotifications.push(waterNotif);
+
+      // If no priority notifications, show the first one
+      const displayNotifications = priorityNotifications.length > 0
+        ? priorityNotifications
+        : filteredNotifications.slice(0, 1);
+
+      setNotifications(displayNotifications);
 
       // Remove isNew flag after animation
       setTimeout(() => {
