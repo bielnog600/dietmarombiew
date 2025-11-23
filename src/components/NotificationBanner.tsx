@@ -18,7 +18,7 @@ export default function NotificationBanner() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
-  const [swipeStates, setSwipeStates] = useState<Record<string, { x: number; swiping: boolean }>>({});
+  const [swipeStates, setSwipeStates] = useState<Record<string, { startX: number; currentX: number; swiping: boolean }>>({});
 
   useEffect(() => {
     if (user) {
@@ -171,7 +171,8 @@ export default function NotificationBanner() {
         isNew: !notifications.find(n => n.id === notif.id)
       }));
 
-      setNotifications(filteredNotifications);
+      // Show only one notification at a time
+      setNotifications(filteredNotifications.slice(0, 1));
 
       // Remove isNew flag after animation
       setTimeout(() => {
@@ -186,7 +187,7 @@ export default function NotificationBanner() {
   const handleSwipeStart = (id: string, clientX: number) => {
     setSwipeStates(prev => ({
       ...prev,
-      [id]: { x: clientX, swiping: true }
+      [id]: { startX: clientX, currentX: clientX, swiping: true }
     }));
   };
 
@@ -194,11 +195,11 @@ export default function NotificationBanner() {
     const state = swipeStates[id];
     if (!state?.swiping) return;
 
-    const deltaX = clientX - state.x;
+    const deltaX = clientX - state.startX;
     if (deltaX > 0) {
       setSwipeStates(prev => ({
         ...prev,
-        [id]: { ...state, x: clientX }
+        [id]: { ...state, currentX: clientX }
       }));
     }
   };
@@ -207,7 +208,7 @@ export default function NotificationBanner() {
     const state = swipeStates[id];
     if (!state?.swiping) return;
 
-    const deltaX = clientX - state.x;
+    const deltaX = clientX - state.startX;
 
     setSwipeStates(prev => {
       const newState = { ...prev };
@@ -277,7 +278,7 @@ export default function NotificationBanner() {
         {notifications.map((notification) => {
           const isDismissing = dismissingIds.has(notification.id);
           const swipeState = swipeStates[notification.id];
-          const swipeOffset = swipeState?.swiping ? Math.max(0, swipeState.x) : 0;
+          const swipeOffset = swipeState?.swiping ? Math.max(0, swipeState.currentX - swipeState.startX) : 0;
 
           return (
             <div
