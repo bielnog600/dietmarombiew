@@ -24,6 +24,7 @@ export default defineConfig({
         start_url: '/',
         prefer_related_applications: false,
         categories: ['fitness', 'health', 'lifestyle'],
+        permissions: ['notifications'],
         shortcuts: [
           {
             name: 'Minha Dieta',

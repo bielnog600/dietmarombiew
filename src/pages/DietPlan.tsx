@@ -9,10 +9,12 @@ import Settings from '../components/Settings';
 import DietPlanMeal from '../components/DietPlanMeal';
 import CarbCyclingSelector from '../components/CarbCyclingSelector';
 import WaterIntakeTracker from '../components/WaterIntakeTracker';
+import NotificationBanner from '../components/NotificationBanner';
 import { useTranslation } from '../translations';
 import { useAuthStore } from '../store/authStore';
 import { calculateRecommendedCalories } from '../lib/calories';
 import { calculateOptimalPortion } from '../lib/diet';
+import { registerPushNotifications, startNotificationScheduler } from '../lib/notifications';
 
 type TabType = 'home' | 'progress' | 'settings';
 
@@ -37,6 +39,18 @@ const DietPlan = () => {
   useEffect(() => {
     if (user) {
       fetchLatestDiet();
+
+      // Register push notifications
+      registerPushNotifications();
+
+      // Start notification scheduler
+      const schedulerInterval = startNotificationScheduler(user.id);
+
+      return () => {
+        if (schedulerInterval) {
+          clearInterval(schedulerInterval);
+        }
+      };
     }
   }, [user, selectedDayOfWeek]);
 
@@ -550,6 +564,8 @@ const DietPlan = () => {
       default:
         return (
           <div className="space-y-2">
+            <NotificationBanner />
+
             <div>
               <div className="mb-4">
                 <h2 className="text-2xl font-bold text-[#f8c045]">{t('dietPlan')}</h2>
