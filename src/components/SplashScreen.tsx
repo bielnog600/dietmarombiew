@@ -8,15 +8,15 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Start fade out after 3.5 seconds
+    // Start fade out after 2.5 seconds
     const fadeTimeout = setTimeout(() => {
       setIsVisible(false);
-    }, 1500);
+    }, 2500);
 
-    // Complete transition and notify parent after 4 seconds
+    // Complete transition and notify parent after 3 seconds
     const finishTimeout = setTimeout(() => {
       onFinish();
-    }, 1000);
+    }, 3000);
 
     return () => {
       clearTimeout(fadeTimeout);
@@ -35,7 +35,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
         <img
           src="https://storage.googleapis.com/glide-prod.appspot.com/uploads-v2/WFlh1WFWGtO11jwoHGnd/pub/1eaqdsHJVJbwEvSURATP.png"
           alt="DIETA"
-          className="w-40 h-40 z-10 animate-pulse"
+          className="w-40 h-40 z-10 animate-pulse-slow"
         />
         <div className="absolute inset-0 flex items-center justify-center">
           <svg className="w-48 h-48 animate-spin-slow" viewBox="0 0 100 100">
@@ -88,12 +88,25 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
           }
         }
 
+        @keyframes pulse-slow {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.6;
+          }
+        }
+
         .animate-spin-slow {
           animation: spin-slow 2s linear infinite;
         }
 
         .animate-spin-reverse {
           animation: spin-reverse 3s linear infinite;
+        }
+
+        .animate-pulse-slow {
+          animation: pulse-slow 2s ease-in-out infinite;
         }
       `}</style>
     </div>
