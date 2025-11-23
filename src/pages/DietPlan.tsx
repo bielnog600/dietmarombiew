@@ -177,6 +177,7 @@ const DietPlan = () => {
       'Lanche da Tarde',
       'Pré-treino',
       'Pós-treino',
+      'Lanche',
       'Jantar',
       'Ceia',
       'Suplementos'
