@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, updateUserPassword } from '../lib/supabase';
-import { Plus, Pencil, Trash2, X, Calculator, Eye, Droplet, Calendar } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Calculator, Eye, Droplet, Calendar, Scale } from 'lucide-react';
 import type { User, MacroDistribution, Diet } from '../types';
 import DietPlanning from './DietPlanning';
 import DietPlanningOptimized from './DietPlanningOptimized';
@@ -8,6 +8,7 @@ import ViewDietModal from './ViewDietModal';
 import WaterIntakeModal from './WaterIntakeModal';
 import WeeklyDietConfig from './WeeklyDietConfig';
 import WeeklyDietWizard from './WeeklyDietWizard';
+import WeightHistoryModal from './WeightHistoryModal';
 import { ACTIVITY_LEVELS } from '../lib/calories';
 import { generateDiet } from '../lib/diet';
 
@@ -38,6 +39,7 @@ function UserManagement() {
   const [showWaterIntakeModal, setShowWaterIntakeModal] = useState(false);
   const [showWeeklyDietModal, setShowWeeklyDietModal] = useState(false);
   const [showWeeklyWizard, setShowWeeklyWizard] = useState(false);
+  const [showWeightHistoryModal, setShowWeightHistoryModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedDiet, setSelectedDiet] = useState<Diet | null>(null);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<number>(1);
@@ -94,6 +96,11 @@ function UserManagement() {
       water_intake: user.water_intake?.toString() || ''
     });
     setShowEditModal(true);
+  };
+
+  const handleWeightHistoryClick = (user: User) => {
+    setSelectedUser(user);
+    setShowWeightHistoryModal(true);
   };
 
   const handleWaterIntakeClick = (user: User) => {
@@ -500,6 +507,13 @@ function UserManagement() {
                       title="Ajustar Água"
                     >
                       <Droplet size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleWeightHistoryClick(user)}
+                      className="text-purple-400 hover:text-purple-300 transition"
+                      title="Histórico de Peso"
+                    >
+                      <Scale size={18} />
                     </button>
                     <button
                       onClick={() => handleDelete(user.id)}
@@ -1017,6 +1031,16 @@ function UserManagement() {
           user={selectedUser}
           onComplete={() => {
             fetchUsers();
+          }}
+        />
+      )}
+
+      {showWeightHistoryModal && selectedUser && (
+        <WeightHistoryModal
+          user={selectedUser}
+          onClose={() => {
+            setShowWeightHistoryModal(false);
+            setSelectedUser(null);
           }}
         />
       )}

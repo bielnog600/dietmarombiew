@@ -99,6 +99,15 @@ export interface WeightRecord {
   created_at: string;
 }
 
+export interface WeightHistory {
+  id: string;
+  user_id: string;
+  weight: number;
+  notes: string;
+  recorded_by: string;
+  created_at: string;
+}
+
 export interface WaterRecord {
   id: string;
   user_id: string;
