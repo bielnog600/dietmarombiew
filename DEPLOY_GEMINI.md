@@ -10,7 +10,6 @@ Para: **Google Gemini 1.5 Flash** (API gratuita fornecida)
 ## 🔑 SUA API KEY (já fornecida):
 
 ```
-AIzaSyDZVOD6Uv-zkUbz86wBFFJq28XlHaSKOfw
 ```
 
 ---
@@ -25,7 +24,7 @@ AIzaSyDZVOD6Uv-zkUbz86wBFFJq28XlHaSKOfw
 
 3. **Adicionar nova secret:**
    - **Name:** `GEMINI_API_KEY`
-   - **Value:** `AIzaSyDZVOD6Uv-zkUbz86wBFFJq28XlHaSKOfw`
+   - **Value:** ``
    - **Save**
 
 4. **IMPORTANTE:** Você pode REMOVER a antiga `OPENAI_API_KEY` (não é mais necessária)
@@ -133,7 +132,7 @@ Seed:1234 Style:equilibrada
 ### Se aparecer: `GEMINI_API_KEY not configured`
 - Confirme que adicionou a secret no **Edge Functions → Secrets**
 - Nome exato: `GEMINI_API_KEY`
-- Valor: `AIzaSyDZVOD6Uv-zkUbz86wBFFJq28XlHaSKOfw`
+- Valor: ``
 
 ### Se aparecer erro 400:
 - Verifique se o código está idêntico ao arquivo local
